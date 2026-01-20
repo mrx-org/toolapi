@@ -7,4 +7,3 @@ edition = "2024"
 axum = { version = "0.8.8", features = ["ws"] }
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
-tungstenite = { version = "0.28.0", features = ["native-tls"] }
