@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub struct ValueDict(HashMap<String, Value>);
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ValueDict(pub HashMap<String, Value>);
 
 impl ValueDict {
     pub fn pop<T>(&mut self, key: &str) -> Result<T, LookupError>
