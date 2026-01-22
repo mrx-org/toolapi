@@ -674,6 +674,7 @@ checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
  "tokio",
  "tungstenite",
 ]
@@ -686,6 +687,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
  "tungstenite",
 ]
 
