@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# axums websocket (ws) feature uses tungstenite which links libssl by default.
-# On Fly.io, native-tls crashes on debian:bookworm-slim (libssl.so.3 not found).
+# For using secure websockets (wss://), tungstenite needs a TLS lib enabled.
+# On fly.io, native-tls crashes on debian:bookworm-slim (libssl.so.3 not found).
 # herefore we define tungstenite explicitly and enable its rustls feature.
-tungstenite = { version = "0.28.0", features = ["rustls"] }
-tokio-tungstenite = { version = "0.28.0", features = ["rustls"] }
+rustls = { version = "0.23", features = ["ring"], default-features = false }
+tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
 axum = { version = "0.8.8", features = ["ws"] }
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
