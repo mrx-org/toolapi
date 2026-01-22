@@ -8,12 +8,11 @@ use axum::{
     response::{Html, IntoResponse, Response},
     routing::{any, get},
 };
-
 use connection::message;
-use tungstenite::connect;
+pub use connection::message::Sender;
 pub use value::{Value, ValueDict};
 
-type ToolFn = fn(ValueDict, message::Sender) -> Result<ValueDict, String>;
+type ToolFn = fn(ValueDict, Sender) -> Result<ValueDict, String>;
 
 #[tokio::main]
 pub async fn run_server(tool: ToolFn, index_html: Option<&'static str>) {
@@ -33,25 +32,18 @@ pub fn call(
     input: ValueDict,
     on_message: fn(String) -> bool,
 ) -> Result<ValueDict, String> {
-    let (mut socket, response) = connect(addr).unwrap();
-
-    // TODO: all of the below will change
-
-    println!("Connected to the server");
-    println!("Response HTTP code: {}", response.status());
-    println!("Response contains the following headers:");
-    for (header, _value) in response.headers() {
-        println!("* {header}");
+    // Create a connection to the server
+    let mut ws_client = connection::websocket::WsClient::connect(addr).unwrap();
+    // Send the input to the server
+    ws_client.send_values(input).unwrap();
+    // Recieve tool messages and abort on request
+    while let Some(msg) = ws_client.recv_message() {
+        if !on_message(msg) {
+            return Err("Client aborted the operation".to_owned());
+        }
     }
-
-    socket
-        .send(Message::Text("Hello WebSocket".into()))
-        .unwrap();
-
-    let msg = socket.read().expect("Error reading message");
-    println!("Received: {msg}");
-
-    socket.close(None).unwrap();
+    // If not aborted, wait for result and return
+    ws_client.recv_result()
 }
 
 #[derive(Clone)]
@@ -60,53 +52,45 @@ struct ToolState {
     index_html: Option<&'static str>,
 }
 
-async fn tool_handler(mut socket: WebSocket, tool: ToolFn) {
+async fn tool_handler(socket: WebSocket, tool: ToolFn) {
     // TODO: better error handling - results are unwrapped!
     // TODO: tool thread should have a timeout!
+    // TODO: We could send input and output over https and use the websocket only for messages and aborts!
 
+    // Wrap the socket in a helper struct
+    let mut ws_server = connection::websocket::WsServer(socket);
     // First, read the input from the socket
-    let input = connection::recv_values(&mut socket).await.unwrap();
+    let input = ws_server.recv_values().await.unwrap();
     // Channel for sending messages to the client and abort signal back
     let (msg_tx, mut msg_rx) = message::channel();
     // Run the tool, give it the input and the channel to send messages
     let result = tokio::task::spawn_blocking(move || tool(input, msg_tx));
 
-    // Now the tool is running. Before collecting the result, we run two loops:
-
-    // TODO: the socket is used twice, in the abort loop and in the message sender.
-    // Two &mut are not allowed, we need to build it into one loop somehow!
-
-    // In the background, we listen for abort signals:
-    let abort_listener = tokio::spawn(async move {
-        while let Some(msg) = socket.recv().await {
-            match msg {
-                Ok(msg) => match msg {
-                    axum::extract::ws::Message::Close(_) => {
-                        // The client can request an abort by closing the connection
-                        msg_rx.abort(message::AbortReason::RequestedByClient);
-                    }
-                    _ => (), // Ignore other messages
-                },
-                Err(_) => {
-                    // Client disconnected or connection failed - abort tool
-                    msg_rx.abort(message::AbortReason::WebSocketError);
+    // Run a loop which forwards tool messages to the client or abort messages to the tool
+    loop {
+        // WARN: axum does not document this - we assume WebSocket.send() and .recv() is cancel safe
+        tokio::select! {
+            tool_msg = msg_rx.recv() => {
+                match tool_msg {
+                    // TODO: currently panicks if WebSocket connection failed - instead send abort to tool
+                    Some(msg) => ws_server.send_message(msg).await.unwrap(),
+                    // msg_rx was closed: tool no longer running (most likely finished)
+                    None => break,
+                }
+            },
+            aborted = ws_server.is_aborted() => {
+                match aborted {
+                    Some(reason) => {msg_rx.abort(reason); break;},
+                    None => (),
                 }
             }
         }
-    });
-
-    // In parallel, we forward messages from the tool to the client
-    while let Some(msg) = msg_rx.recv().await {
-        socket.send(axum::extract::ws::Message::Text(msg.into())).await.unwrap();
     }
-
-    // Tool closed connection - we can stop the abort forward loop now
-    abort_listener.abort();
 
     // Wait for tool completion and collect result - panics if tool panicked
     let result = result.await.unwrap();
     // Return the output to the client
-    connection::send_result(socket, result).await.unwrap();
+    ws_server.send_result(result).await.unwrap();
 }
 
 async fn socket_handler(ws: WebSocketUpgrade, State(state): State<ToolState>) -> Response {
