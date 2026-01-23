@@ -33,17 +33,21 @@ pub fn call(
     on_message: fn(String) -> bool,
 ) -> Result<ValueDict, String> {
     // Create a connection to the server
-    let mut ws_client = connection::websocket::WsClient::connect(addr).unwrap();
+    let mut ws_client = connection::websocket::WsChannelSync::connect(addr).unwrap();
     // Send the input to the server
     ws_client.send_values(input).unwrap();
     // Recieve tool messages and abort on request
-    while let Some(msg) = ws_client.recv_message() {
+    while let Some(msg) = ws_client.read_message().unwrap() {
         if !on_message(msg) {
+            ws_client.send_abort().unwrap();
+            ws_client.close().unwrap();
             return Err("Client aborted the operation".to_owned());
         }
     }
     // If not aborted, wait for result and return
-    ws_client.recv_result()
+    let result = ws_client.read_result().unwrap().unwrap();
+    ws_client.close().unwrap();
+    result
 }
 
 #[derive(Clone)]
@@ -58,9 +62,9 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) {
     // TODO: We could send input and output over https and use the websocket only for messages and aborts!
 
     // Wrap the socket in a helper struct
-    let mut ws_server = connection::websocket::WsServer(socket);
+    let mut ws_server = connection::websocket::WsChannelAsync::new(socket);
     // First, read the input from the socket
-    let input = ws_server.recv_values().await.unwrap();
+    let input = ws_server.read_values().await.unwrap().unwrap();
     // Channel for sending messages to the client and abort signal back
     let (msg_tx, mut msg_rx) = message::channel();
     // Run the tool, give it the input and the channel to send messages
@@ -78,10 +82,11 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) {
                     None => break,
                 }
             },
-            aborted = ws_server.is_aborted() => {
-                match aborted {
-                    Some(reason) => {msg_rx.abort(reason); break;},
-                    None => (),
+            aborted = ws_server.read_abort() => {
+                if aborted.unwrap().is_some() {
+                    // TODO: handle abort reasons with new web socket impls!
+                    msg_rx.abort(message::AbortReason::RequestedByClient);
+                    break;
                 }
             }
         }
