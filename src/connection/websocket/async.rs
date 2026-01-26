@@ -1,7 +1,7 @@
 //! Async implementation of the WebSocket communication.
 //! This is used by the server (which hosts the tool).
 
-use crate::{ValueDict, connection::websocket::ConnectionError};
+use crate::{ValueDict, error::ConnectionError};
 
 // NOTE: implementation is analoguous to sync, look there for more comments
 

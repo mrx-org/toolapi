@@ -1,4 +1,5 @@
 mod connection;
+mod error;
 mod value;
 
 use axum::{
@@ -9,6 +10,7 @@ use axum::{
     routing::{any, get},
 };
 pub use connection::channel::Sender;
+pub use error::*;
 pub use value::{Value, ValueDict};
 
 type ToolFn = fn(ValueDict, Sender) -> Result<ValueDict, String>;
@@ -84,7 +86,7 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) {
             aborted = ws_server.read_abort() => {
                 if aborted.unwrap().is_some() {
                     // TODO: handle abort reasons with new web socket impls!
-                    msg_rx.abort(connection::channel::AbortReason::RequestedByClient);
+                    msg_rx.abort(AbortReason::RequestedByClient);
                     break;
                 }
             }

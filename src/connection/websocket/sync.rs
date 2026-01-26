@@ -1,8 +1,7 @@
 //! Sync / blocking implementation of the WebSocket communication.
 //! This is used by the client (usually some Python script).
 
-use super::ConnectionError;
-use crate::ValueDict;
+use crate::{ValueDict, error::ConnectionError};
 use std::net::TcpStream;
 use tungstenite::{client::IntoClientRequest, stream::MaybeTlsStream};
 

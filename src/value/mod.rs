@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::error::{ConversionError, LookupError};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValueDict(pub HashMap<String, Value>);
 
@@ -14,12 +16,6 @@ impl ValueDict {
             None => Err(LookupError::KeyError),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum LookupError {
-    KeyError,
-    ConversionError(ConversionError),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,12 +43,6 @@ impl Value {
             Value::String(x) => type_name_of_val(x),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ConversionError {
-    pub from: &'static str,
-    pub into: &'static str,
 }
 
 macro_rules! impl_value {

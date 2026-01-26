@@ -1,3 +1,5 @@
+use crate::error::AbortReason;
+
 pub struct Sender {
     msg_tx: tokio::sync::mpsc::Sender<String>,
     abort_rx: tokio::sync::oneshot::Receiver<AbortReason>,
@@ -50,22 +52,5 @@ impl Receiver {
     pub fn abort(self, reason: AbortReason) {
         // Ignore error: if we can't send, the tool probably has quit already
         let _ = self.abort_tx.send(reason);
-    }
-}
-
-pub enum AbortReason {
-    RequestedByClient,
-    ConnectionError,
-    WebSocketError,
-}
-
-impl From<AbortReason> for String {
-    fn from(value: AbortReason) -> Self {
-        let reason = match value {
-            AbortReason::RequestedByClient => "RequestedByClient",
-            AbortReason::ConnectionError => "ConnectionError",
-            AbortReason::WebSocketError => "WebSocketError",
-        };
-        format!("Tool was asked to abort: {reason}")
     }
 }
