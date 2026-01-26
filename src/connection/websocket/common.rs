@@ -1,13 +1,13 @@
 //! Common structures shared by client and server / sync and async impls.
 //! This is the heart of the communication - both sides have to agree on this!
 
-use crate::{ValueDict, error::ParseError};
+use crate::{ParseError, ToolError, ValueDict};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub enum Message {
     Values(ValueDict),
-    Result(Result<ValueDict, String>),
+    Result(Result<ValueDict, ToolError>),
     Message(String),
     Abort,
 }

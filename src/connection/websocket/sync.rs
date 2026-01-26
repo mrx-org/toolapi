@@ -1,7 +1,7 @@
 //! Sync / blocking implementation of the WebSocket communication.
 //! This is used by the client (usually some Python script).
 
-use crate::{ValueDict, error::ConnectionError};
+use crate::{ToolError, ValueDict, error::ConnectionError};
 use std::net::TcpStream;
 use tungstenite::{client::IntoClientRequest, stream::MaybeTlsStream};
 
@@ -61,7 +61,7 @@ impl WsChannelSync {
         }
     }
 
-    pub fn read_result(&mut self) -> Result<Option<Result<ValueDict, String>>, ConnectionError> {
+    pub fn read_result(&mut self) -> Result<Option<Result<ValueDict, ToolError>>, ConnectionError> {
         self.read()?;
         match self.buffer.take() {
             Some(super::common::Message::Result(x)) => Ok(Some(x)),

@@ -1,7 +1,3 @@
-mod connection;
-mod error;
-mod value;
-
 use axum::{
     Router,
     extract::{State, WebSocketUpgrade, ws::WebSocket},
@@ -9,11 +5,16 @@ use axum::{
     response::{Html, IntoResponse, Response},
     routing::{any, get},
 };
+
+mod connection;
+mod error;
+mod value;
+
 pub use connection::channel::Sender;
 pub use error::*;
 pub use value::{Value, ValueDict};
 
-type ToolFn = fn(ValueDict, Sender) -> Result<ValueDict, String>;
+type ToolFn = fn(ValueDict, Sender) -> Result<ValueDict, ToolError>;
 
 #[tokio::main]
 pub async fn run_server(
@@ -54,7 +55,7 @@ pub fn call(
         .read_result()?
         .ok_or(ToolCallError::ProtocolError)?;
     ws_client.close()?; // TODO: we have the result, shouldn't we return it?
-    result.map_err(ToolCallError::ToolError)
+    result.map_err(ToolCallError::ToolReturnedError)
 }
 
 #[derive(Clone)]

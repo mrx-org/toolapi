@@ -1,7 +1,7 @@
 //! Async implementation of the WebSocket communication.
 //! This is used by the server (which hosts the tool).
 
-use crate::{ValueDict, error::ConnectionError};
+use crate::{ConnectionError, ToolError, ValueDict};
 
 use super::common::Message;
 
@@ -27,7 +27,7 @@ impl WsChannelAsync {
 
     pub async fn send_result(
         &mut self,
-        result: Result<ValueDict, String>,
+        result: Result<ValueDict, ToolError>,
     ) -> Result<(), ConnectionError> {
         self.socket
             .send(Message::Result(result).try_into()?)

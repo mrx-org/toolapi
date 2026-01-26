@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::connection::websocket::WsMessageType;
 
+/// Sent over the server <-> tool channel to communicate an abort
 #[derive(Error, Debug)]
 pub enum AbortReason {
     #[error("requested by client")]
@@ -12,6 +14,7 @@ pub enum AbortReason {
     ConnectionClosed,
 }
 
+/// Exclusively used by the Values struct when looking up a value
 #[derive(Error, Debug)]
 #[error("dynamic type contained a `{from}`, tried to extract a `{into}`")]
 pub struct TypeExtractionError {
@@ -19,6 +22,7 @@ pub struct TypeExtractionError {
     pub into: &'static str,
 }
 
+/// Exclusively used by the Values struct when looking up a value
 #[derive(Error, Debug)]
 pub enum LookupError {
     #[error("key {0} does not exist")]
@@ -27,6 +31,7 @@ pub enum LookupError {
     ConversionError(#[from] TypeExtractionError),
 }
 
+/// Created during Message (de)serialization, part of ConnectionError
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[error("serialization failed: {0}")]
@@ -40,6 +45,7 @@ pub enum ParseError {
     },
 }
 
+/// Returned by the WebSocket impls when trying to connect, send, recv
 #[derive(Error, Debug)]
 pub enum ConnectionError {
     #[error("WebSocket error (tungstenite): {0}")]
@@ -54,6 +60,7 @@ pub enum ConnectionError {
     ToolPanic(#[from] tokio::task::JoinError),
 }
 
+/// Returned by the call() function running on the client
 #[derive(Error, Debug)]
 pub enum ToolCallError {
     #[error("connection error: {0}")]
@@ -66,4 +73,18 @@ pub enum ToolCallError {
     ToolError(String),
     #[error("client requested abort in on_message")]
     OnMessageAbort,
+    #[error("tool returned an error: {0}")]
+    ToolReturnedError(#[from] ToolError),
+}
+
+/// Returned by the tool in the final result() call as reason if no value was computed.
+/// It is seriazable since it is the only error that ist actually sent over the WebSocket connection.
+#[derive(Error, Debug, Serialize, Deserialize)]
+pub enum ToolError {
+    /// This does not contain the abort reason because not all of them are seriazable.
+    /// The server logs should have the abort with the reason logged.
+    #[error("tool was requested to abort")]
+    Abort,
+    #[error("custom tool error: {0}")]
+    Custom(String),
 }

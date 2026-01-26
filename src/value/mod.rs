@@ -4,7 +4,13 @@ use std::collections::HashMap;
 use crate::error::{LookupError, TypeExtractionError};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ValueDict(pub HashMap<String, Value>);
+pub struct ValueDict(HashMap<String, Value>);
+
+impl<const N: usize> From<[(String, Value); N]> for ValueDict {
+    fn from(value: [(String, Value); N]) -> Self {
+        Self(HashMap::from(value))
+    }
+}
 
 impl ValueDict {
     pub fn pop<T>(&mut self, key: &str) -> Result<T, LookupError>
