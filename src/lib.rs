@@ -8,8 +8,7 @@ use axum::{
     response::{Html, IntoResponse, Response},
     routing::{any, get},
 };
-use connection::message;
-pub use connection::message::Sender;
+pub use connection::channel::Sender;
 pub use value::{Value, ValueDict};
 
 type ToolFn = fn(ValueDict, Sender) -> Result<ValueDict, String>;
@@ -66,7 +65,7 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) {
     // First, read the input from the socket
     let input = ws_server.read_values().await.unwrap().unwrap();
     // Channel for sending messages to the client and abort signal back
-    let (msg_tx, mut msg_rx) = message::channel();
+    let (msg_tx, mut msg_rx) = connection::channel::connect();
     // Run the tool, give it the input and the channel to send messages
     let result = tokio::task::spawn_blocking(move || tool(input, msg_tx));
 
@@ -85,7 +84,7 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) {
             aborted = ws_server.read_abort() => {
                 if aborted.unwrap().is_some() {
                     // TODO: handle abort reasons with new web socket impls!
-                    msg_rx.abort(message::AbortReason::RequestedByClient);
+                    msg_rx.abort(connection::channel::AbortReason::RequestedByClient);
                     break;
                 }
             }

@@ -8,7 +8,7 @@ pub struct Receiver {
     abort_tx: tokio::sync::oneshot::Sender<AbortReason>,
 }
 
-pub fn channel() -> (Sender, Receiver) {
+pub fn connect() -> (Sender, Receiver) {
     // Channel for sending messages to the client
     let (msg_tx, msg_rx) = tokio::sync::mpsc::channel(1024);
     // Channel for sending an abort message to the server
