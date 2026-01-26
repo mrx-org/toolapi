@@ -1,4 +1,4 @@
-use crate::error::AbortReason;
+use crate::{ConnectionError, error::AbortReason};
 
 pub struct Sender {
     msg_tx: tokio::sync::mpsc::Sender<String>,
@@ -28,14 +28,14 @@ impl Sender {
     pub fn send(&mut self, msg: String) -> Result<(), AbortReason> {
         self.msg_tx
             .blocking_send(msg)
-            .map_err(|_| AbortReason::ConnectionError)?;
+            .map_err(ConnectionError::TokioError)?;
 
         use tokio::sync::oneshot::error::TryRecvError;
         match self.abort_rx.try_recv() {
             Ok(reason) => Err(reason),
             Err(err) => match err {
                 TryRecvError::Empty => Ok(()),
-                TryRecvError::Closed => Err(AbortReason::ConnectionError),
+                TryRecvError::Closed => Err(AbortReason::ConnectionClosed),
             },
         }
     }

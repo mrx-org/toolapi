@@ -58,7 +58,7 @@ impl TryFrom<WsMessageAxum> for Message {
             }
             msg => Err(ParseError::WrongMessageType {
                 expected: WsMessageType::Text,
-                got: msg.into(),
+                found: msg.into(),
             }),
         }
     }
@@ -74,7 +74,7 @@ impl TryFrom<WsMessageTung> for Message {
             }
             msg => Err(ParseError::WrongMessageType {
                 expected: WsMessageType::Text,
-                got: msg.into(),
+                found: msg.into(),
             }),
         }
     }
