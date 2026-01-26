@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::error::{ConversionError, LookupError};
+use crate::error::{TypeExtractionError, LookupError};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValueDict(pub HashMap<String, Value>);
@@ -9,11 +9,11 @@ pub struct ValueDict(pub HashMap<String, Value>);
 impl ValueDict {
     pub fn pop<T>(&mut self, key: &str) -> Result<T, LookupError>
     where
-        T: TryFrom<Value, Error = ConversionError>,
+        T: TryFrom<Value, Error = TypeExtractionError>,
     {
         match self.0.remove(key) {
             Some(value) => Ok(value.try_into().map_err(LookupError::ConversionError)?),
-            None => Err(LookupError::KeyError),
+            None => Err(LookupError::KeyError(key.to_owned())),
         }
     }
 }
@@ -54,12 +54,12 @@ macro_rules! impl_value {
         }
 
         impl TryFrom<Value> for $rust_type {
-            type Error = ConversionError;
+            type Error = TypeExtractionError;
 
             fn try_from(value: Value) -> Result<Self, Self::Error> {
                 match value {
                     Value::$value_type(value) => Ok(value),
-                    _ => Err(ConversionError {
+                    _ => Err(TypeExtractionError {
                         from: value.type_name(),
                         into: std::any::type_name::<$rust_type>(),
                     }),

@@ -57,15 +57,14 @@ struct ToolState {
     index_html: Option<&'static str>,
 }
 
-async fn tool_handler(socket: WebSocket, tool: ToolFn) {
-    // TODO: better error handling - results are unwrapped!
-    // TODO: tool thread should have a timeout!
-    // TODO: We could send input and output over https and use the websocket only for messages and aborts!
-
+async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionError> {
     // Wrap the socket in a helper struct
     let mut ws_server = connection::websocket::WsChannelAsync::new(socket);
     // First, read the input from the socket
-    let input = ws_server.read_values().await.unwrap().unwrap();
+    let input = ws_server
+        .read_values()
+        .await?
+        .ok_or(ConnectionError::ConnectionClosed)?;
     // Channel for sending messages to the client and abort signal back
     let (msg_tx, mut msg_rx) = connection::channel::connect();
     // Run the tool, give it the input and the channel to send messages
@@ -74,18 +73,16 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) {
     // Run a loop which forwards tool messages to the client or abort messages to the tool
     loop {
         // WARN: axum does not document this - we assume WebSocket.send() and .recv() is cancel safe
+        // TODO: tool thread should have a timeout!
         tokio::select! {
             tool_msg = msg_rx.recv() => {
                 match tool_msg {
-                    // TODO: currently panicks if WebSocket connection failed - instead send abort to tool
-                    Some(msg) => ws_server.send_message(msg).await.unwrap(),
-                    // msg_rx was closed: tool no longer running (most likely finished)
-                    None => break,
+                    Some(msg) => ws_server.send_message(msg).await?,
+                    None => break,  // msg_rx was closed: tool no longer running
                 }
             },
             aborted = ws_server.read_abort() => {
-                if aborted.unwrap().is_some() {
-                    // TODO: handle abort reasons with new web socket impls!
+                if aborted?.is_some() {
                     msg_rx.abort(AbortReason::RequestedByClient);
                     break;
                 }
@@ -94,13 +91,21 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) {
     }
 
     // Wait for tool completion and collect result - panics if tool panicked
-    let result = result.await.unwrap();
+    let result = result
+        .await
+        .map_err(|err| ConnectionError::ToolPanic(err.to_string()))?;
     // Return the output to the client
-    ws_server.send_result(result).await.unwrap();
+    ws_server.send_result(result).await
 }
 
 async fn socket_handler(ws: WebSocketUpgrade, State(state): State<ToolState>) -> Response {
-    ws.on_upgrade(move |socket| tool_handler(socket, state.tool))
+    // print errors to stdout (logged by fly.io, might need explicit logging for other platforms)
+    ws.on_upgrade(async move |socket| {
+        if let Err(err) = tool_handler(socket, state.tool).await {
+            // TODO: we should send the error to the tool as well!
+            eprintln!("{err}");
+        }
+    })
 }
 
 async fn index_handler(State(state): State<ToolState>) -> Response {

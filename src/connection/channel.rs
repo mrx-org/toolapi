@@ -1,4 +1,4 @@
-use crate::{ConnectionError, error::AbortReason};
+use crate::error::AbortReason;
 
 pub struct Sender {
     msg_tx: tokio::sync::mpsc::Sender<String>,
@@ -26,9 +26,7 @@ impl Sender {
     /// # Blocking
     /// This function blocks on sending the message and should not be used in an `async` context.
     pub fn send(&mut self, msg: String) -> Result<(), AbortReason> {
-        self.msg_tx
-            .blocking_send(msg)
-            .map_err(ConnectionError::TokioError)?;
+        self.msg_tx.blocking_send(msg)?;
 
         use tokio::sync::oneshot::error::TryRecvError;
         match self.abort_rx.try_recv() {
