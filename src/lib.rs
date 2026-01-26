@@ -16,7 +16,10 @@ pub use value::{Value, ValueDict};
 type ToolFn = fn(ValueDict, Sender) -> Result<ValueDict, String>;
 
 #[tokio::main]
-pub async fn run_server(tool: ToolFn, index_html: Option<&'static str>) {
+pub async fn run_server(
+    tool: ToolFn,
+    index_html: Option<&'static str>,
+) -> Result<(), std::io::Error> {
     let state = ToolState { tool, index_html };
 
     let routes = Router::new()
@@ -24,31 +27,34 @@ pub async fn run_server(tool: ToolFn, index_html: Option<&'static str>) {
         .route("/tool", any(socket_handler))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    axum::serve(listener, routes).await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    axum::serve(listener, routes).await
 }
 
 pub fn call(
     addr: &str,
     input: ValueDict,
     on_message: fn(String) -> bool,
-) -> Result<ValueDict, String> {
-    // Create a connection to the server
-    let mut ws_client = connection::websocket::WsChannelSync::connect(addr).unwrap();
-    // Send the input to the server
-    ws_client.send_values(input).unwrap();
-    // Recieve tool messages and abort on request
-    while let Some(msg) = ws_client.read_message().unwrap() {
+) -> Result<ValueDict, ToolCallError> {
+    // Create a connection to the server, send inputs, run callback message loop
+    let mut ws_client = connection::websocket::WsChannelSync::connect(addr)?;
+
+    ws_client.send_values(input)?;
+    while let Some(msg) = ws_client.read_message()? {
         if !on_message(msg) {
-            ws_client.send_abort().unwrap();
-            ws_client.close().unwrap();
-            return Err("Client aborted the operation".to_owned());
+            // abort was requested by client callback
+            ws_client.send_abort()?;
+            ws_client.close()?;
+            return Err(ToolCallError::OnMessageAbort);
         }
     }
-    // If not aborted, wait for result and return
-    let result = ws_client.read_result().unwrap().unwrap();
-    ws_client.close().unwrap();
-    result
+
+    // Read result, handle shutdown, return result
+    let result = ws_client
+        .read_result()?
+        .ok_or(ToolCallError::ProtocolError)?;
+    ws_client.close()?; // TODO: we have the result, shouldn't we return it?
+    result.map_err(ToolCallError::ToolError)
 }
 
 #[derive(Clone)]
@@ -91,9 +97,7 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
     }
 
     // Wait for tool completion and collect result - panics if tool panicked
-    let result = result
-        .await
-        .map_err(|err| ConnectionError::ToolPanic(err.to_string()))?;
+    let result = result.await?;
     // Return the output to the client
     ws_server.send_result(result).await
 }

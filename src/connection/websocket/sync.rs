@@ -12,10 +12,9 @@ pub struct WsChannelSync {
 }
 
 impl WsChannelSync {
-    pub fn connect<Req: IntoClientRequest>(request: Req) -> Result<Self, String> {
-        // We ignore the response (for now?)
-        let (socket, _) =
-            tungstenite::connect(request).map_err(|err| format!("Failed to connect: {err}"))?;
+    pub fn connect<Req: IntoClientRequest>(request: Req) -> Result<Self, ConnectionError> {
+        // TODO: should we look at the (ignored _) response?
+        let (socket, _) = tungstenite::connect(request)?;
 
         Ok(Self {
             socket,
@@ -24,45 +23,29 @@ impl WsChannelSync {
     }
 
     pub fn close(mut self) -> Result<(), ConnectionError> {
-        self.socket
-            .close(None)
-            .map_err(ConnectionError::TungsteniteError)
+        self.socket.close(None)?;
+        Ok(())
     }
 
     pub fn send_abort(&mut self) -> Result<(), ConnectionError> {
         self.socket
-            .send(
-                super::common::Message::Abort
-                    .try_into()
-                    .map_err(ConnectionError::ParseError)?,
-            )
-            .map_err(ConnectionError::TungsteniteError)
+            .send(super::common::Message::Abort.try_into()?)?;
+        Ok(())
     }
 
     pub fn send_values(&mut self, values: ValueDict) -> Result<(), ConnectionError> {
         self.socket
-            .send(
-                super::common::Message::Values(values)
-                    .try_into()
-                    .map_err(ConnectionError::ParseError)?,
-            )
-            .map_err(ConnectionError::TungsteniteError)
+            .send(super::common::Message::Values(values).try_into()?)?;
+        Ok(())
     }
 
     /// Fill the message buffer, error on connection failure (but not on closed stream)
     fn read(&mut self) -> Result<(), ConnectionError> {
         // Only try to read if we need to and are able to:
         if self.buffer.is_none() && self.socket.can_read() {
-            let msg = self
-                .socket
-                .read()
-                .map_err(ConnectionError::TungsteniteError)?;
-            let msg = msg.try_into().map_err(ConnectionError::ParseError)?;
-            // Reading and parsing was successful, now simply fill the buffer
-            self.buffer = Some(msg);
+            self.buffer = Some(self.socket.read()?.try_into()?);
         }
 
-        // Reading was ok (or a message was buffered)
         Ok(())
     }
 

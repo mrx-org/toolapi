@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::error::{TypeExtractionError, LookupError};
+use crate::error::{LookupError, TypeExtractionError};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValueDict(pub HashMap<String, Value>);
@@ -12,7 +12,7 @@ impl ValueDict {
         T: TryFrom<Value, Error = TypeExtractionError>,
     {
         match self.0.remove(key) {
-            Some(value) => Ok(value.try_into().map_err(LookupError::ConversionError)?),
+            Some(value) => Ok(value.try_into()?),
             None => Err(LookupError::KeyError(key.to_owned())),
         }
     }

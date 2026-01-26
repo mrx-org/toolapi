@@ -3,11 +3,13 @@
 
 use crate::{ValueDict, error::ConnectionError};
 
+use super::common::Message;
+
 // NOTE: implementation is analoguous to sync, look there for more comments
 
 pub struct WsChannelAsync {
     socket: axum::extract::ws::WebSocket,
-    buffer: Option<super::common::Message>,
+    buffer: Option<Message>,
 }
 
 impl WsChannelAsync {
@@ -19,25 +21,18 @@ impl WsChannelAsync {
     }
 
     pub async fn send_message(&mut self, msg: String) -> Result<(), ConnectionError> {
-        self.socket
-            .send(
-                super::common::Message::Message(msg)
-                    .try_into()
-                    .map_err(ConnectionError::ParseError)?,
-            )
-            .await
-            .map_err(ConnectionError::AxumError)
+        self.socket.send(Message::Message(msg).try_into()?).await?;
+        Ok(())
     }
 
-    pub async fn send_result(&mut self, result: Result<ValueDict, String>) -> Result<(), ConnectionError> {
+    pub async fn send_result(
+        &mut self,
+        result: Result<ValueDict, String>,
+    ) -> Result<(), ConnectionError> {
         self.socket
-            .send(
-                super::common::Message::Result(result)
-                    .try_into()
-                    .map_err(ConnectionError::ParseError)?,
-            )
-            .await
-            .map_err(ConnectionError::AxumError)
+            .send(Message::Result(result).try_into()?)
+            .await?;
+        Ok(())
     }
 
     async fn read(&mut self) -> Result<(), ConnectionError> {
@@ -45,9 +40,7 @@ impl WsChannelAsync {
             // Difference to tungstenite: there is no can_read() method;
             // instead None is returned from a closed stream.
             if let Some(msg) = self.socket.recv().await {
-                let msg = msg.map_err(ConnectionError::AxumError)?;
-                let msg = msg.try_into().map_err(ConnectionError::ParseError)?;
-                self.buffer = Some(msg)
+                self.buffer = Some(msg?.try_into()?)
             }
         }
 
@@ -57,7 +50,7 @@ impl WsChannelAsync {
     pub async fn read_abort(&mut self) -> Result<Option<()>, ConnectionError> {
         self.read().await?;
         match self.buffer.take() {
-            Some(super::common::Message::Abort) => Ok(Some(())),
+            Some(Message::Abort) => Ok(Some(())),
             Some(msg) => {
                 self.buffer = Some(msg);
                 Ok(None)
@@ -69,7 +62,7 @@ impl WsChannelAsync {
     pub async fn read_values(&mut self) -> Result<Option<ValueDict>, ConnectionError> {
         self.read().await?;
         match self.buffer.take() {
-            Some(super::common::Message::Values(x)) => Ok(Some(x)),
+            Some(Message::Values(x)) => Ok(Some(x)),
             Some(msg) => {
                 self.buffer = Some(msg);
                 Ok(None)
