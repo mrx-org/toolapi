@@ -3,12 +3,38 @@ use std::collections::HashMap;
 
 use crate::error::{LookupError, TypeExtractionError};
 
+mod misc;
+pub use misc::*;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Value {
+    None(()),
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    String(String),
+    Signal(Signal),
+    Encoding(Encoding),
+}
+
+// =============================================================
+// ValueDict: Collection of values used as Tool input and output
+// =============================================================
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValueDict(HashMap<String, Value>);
 
 impl<const N: usize> From<[(String, Value); N]> for ValueDict {
     fn from(value: [(String, Value); N]) -> Self {
         Self(HashMap::from(value))
+    }
+}
+
+impl<const N: usize> From<[(&str, Value); N]> for ValueDict {
+    fn from(value: [(&str, Value); N]) -> Self {
+        Self(HashMap::from_iter(
+            value.into_iter().map(|(k, v)| (k.to_owned(), v.into())),
+        ))
     }
 }
 
@@ -22,15 +48,6 @@ impl ValueDict {
             None => Err(LookupError::KeyError(key.to_owned())),
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Value {
-    None(()),
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    String(String),
 }
 
 // =====================================================
@@ -47,6 +64,8 @@ impl Value {
             Value::Int(x) => type_name_of_val(x),
             Value::Float(x) => type_name_of_val(x),
             Value::String(x) => type_name_of_val(x),
+            Value::Signal(x) => type_name_of_val(x),
+            Value::Encoding(x) => type_name_of_val(x),
         }
     }
 }
@@ -80,3 +99,5 @@ impl_value!(bool, Bool);
 impl_value!(i64, Int);
 impl_value!(f64, Float);
 impl_value!(String, String);
+impl_value!(Signal, Signal);
+impl_value!(Encoding, Encoding);

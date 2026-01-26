@@ -8,7 +8,7 @@ use axum::{
 
 mod connection;
 mod error;
-mod value;
+pub mod value;
 
 pub use connection::channel::Sender;
 pub use error::*;
