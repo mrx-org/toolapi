@@ -35,7 +35,7 @@ pub async fn run_server(
 pub fn call(
     addr: &str,
     input: ValueDict,
-    on_message: fn(String) -> bool,
+    mut on_message: impl FnMut(String) -> bool,
 ) -> Result<ValueDict, ToolCallError> {
     // Create a connection to the server, send inputs, run callback message loop
     let mut ws_client = connection::websocket::WsChannelSync::connect(addr)?;
