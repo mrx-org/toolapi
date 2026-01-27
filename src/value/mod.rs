@@ -50,6 +50,15 @@ impl<const N: usize> From<[(&str, Value); N]> for ValueDict {
     }
 }
 
+impl IntoIterator for ValueDict {
+    type Item = (String, Value);
+    type IntoIter = std::collections::hash_map::IntoIter<String, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl ValueDict {
     pub fn pop<T>(&mut self, key: &str) -> Result<T, LookupError>
     where
