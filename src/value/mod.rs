@@ -4,7 +4,11 @@ use std::collections::HashMap;
 use crate::error::{LookupError, TypeExtractionError};
 
 mod misc;
+mod phantom;
+mod sequence;
 pub use misc::*;
+pub use phantom::*;
+pub use sequence::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
@@ -15,6 +19,14 @@ pub enum Value {
     String(String),
     Signal(Signal),
     Encoding(Encoding),
+    // TODO: reduce / unify
+    TissueProperties(TissueProperties),
+    MultiTissuePhantom(MultiTissuePhantom),
+    VoxelPhantom(VoxelPhantom),
+    VoxelGridPhantom(VoxelGridPhantom),
+    // TODO: rethink naming (especially of the structs inside of the seqs!)
+    EventSeq(EventSeq),
+    BlockSeq(BlockSeq),
 }
 
 // =============================================================
@@ -66,6 +78,12 @@ impl Value {
             Value::String(x) => type_name_of_val(x),
             Value::Signal(x) => type_name_of_val(x),
             Value::Encoding(x) => type_name_of_val(x),
+            Value::TissueProperties(x) => type_name_of_val(x),
+            Value::MultiTissuePhantom(x) => type_name_of_val(x),
+            Value::VoxelPhantom(x) => type_name_of_val(x),
+            Value::VoxelGridPhantom(x) => type_name_of_val(x),
+            Value::EventSeq(x) => type_name_of_val(x),
+            Value::BlockSeq(x) => type_name_of_val(x),
         }
     }
 }
@@ -101,3 +119,9 @@ impl_value!(f64, Float);
 impl_value!(String, String);
 impl_value!(Signal, Signal);
 impl_value!(Encoding, Encoding);
+impl_value!(TissueProperties, TissueProperties);
+impl_value!(MultiTissuePhantom, MultiTissuePhantom);
+impl_value!(VoxelPhantom, VoxelPhantom);
+impl_value!(VoxelGridPhantom, VoxelGridPhantom);
+impl_value!(EventSeq, EventSeq);
+impl_value!(BlockSeq, BlockSeq);
