@@ -3,6 +3,14 @@ name = "toolapi"
 version = "0.1.0"
 edition = "2024"
 
+license-file = "LICENSE"
+description = "MRX ToolAPI - connect clients and tools running in the cloud."
+homepage = "https://mrx-org.github.io/mrx-book/"
+repository = "https://github.com/mrx-org/toolapi"
+readme = "README.md"
+keywords = []
+categories = []
+
 [dependencies]
 # For using secure websockets (wss://), tungstenite needs a TLS lib enabled.
 # On fly.io, native-tls crashes on debian:bookworm-slim (libssl.so.3 not found).
