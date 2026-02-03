@@ -105,12 +105,14 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
 
 async fn socket_handler(ws: WebSocketUpgrade, State(state): State<ToolState>) -> Response {
     // print errors to stdout (logged by fly.io, might need explicit logging for other platforms)
-    ws.on_upgrade(async move |socket| {
-        if let Err(err) = tool_handler(socket, state.tool).await {
-            // TODO: we should send the error to the tool as well!
-            eprintln!("{err}");
-        }
-    })
+    ws.max_message_size(256 * 1024 * 1024)
+        .max_frame_size(256 * 1024 * 1024)
+        .on_upgrade(async move |socket| {
+            if let Err(err) = tool_handler(socket, state.tool).await {
+                // TODO: we should send the error to the tool as well!
+                eprintln!("{err}");
+            }
+        })
 }
 
 async fn index_handler(State(state): State<ToolState>) -> Response {

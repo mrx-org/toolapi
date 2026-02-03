@@ -3,7 +3,7 @@
 
 use crate::{ToolError, ValueDict, error::ConnectionError};
 use std::net::TcpStream;
-use tungstenite::{client::IntoClientRequest, stream::MaybeTlsStream};
+use tungstenite::{client::IntoClientRequest, protocol::WebSocketConfig, stream::MaybeTlsStream};
 
 pub struct WsChannelSync {
     socket: tungstenite::WebSocket<MaybeTlsStream<TcpStream>>,
@@ -13,8 +13,11 @@ pub struct WsChannelSync {
 
 impl WsChannelSync {
     pub fn connect<Req: IntoClientRequest>(request: Req) -> Result<Self, ConnectionError> {
+        let config = WebSocketConfig::default()
+            .max_message_size(Some(256 * 1024 * 1024))
+            .max_frame_size(Some(256 * 1024 * 1024));
         // TODO: should we look at the (ignored _) response?
-        let (socket, _) = tungstenite::connect(request)?;
+        let (socket, _) = tungstenite::client::connect_with_config(request, Some(config), 3)?;
 
         Ok(Self {
             socket,
