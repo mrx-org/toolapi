@@ -53,8 +53,8 @@ impl TryFrom<WsMessageAxum> for Message {
 
     fn try_from(value: WsMessageAxum) -> Result<Self, Self::Error> {
         match value {
-            WsMessageAxum::Text(string) => {
-                Ok(serde_json::from_str(&string).map_err(ParseError::DeserializationError)?)
+            WsMessageAxum::Binary(raw) => {
+                Ok(rmp_serde::from_slice(&raw).map_err(ParseError::DeserializationError)?)
             }
             msg => Err(ParseError::WrongMessageType {
                 expected: WsMessageType::Text,
@@ -69,8 +69,8 @@ impl TryFrom<WsMessageTung> for Message {
 
     fn try_from(value: WsMessageTung) -> Result<Self, Self::Error> {
         match value {
-            WsMessageTung::Text(string) => {
-                Ok(serde_json::from_str(&string).map_err(ParseError::DeserializationError)?)
+            WsMessageTung::Binary(raw) => {
+                Ok(rmp_serde::from_slice(&raw).map_err(ParseError::DeserializationError)?)
             }
             msg => Err(ParseError::WrongMessageType {
                 expected: WsMessageType::Text,
@@ -84,8 +84,8 @@ impl TryFrom<Message> for WsMessageAxum {
     type Error = ParseError;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
-        let string = serde_json::to_string(&value).map_err(ParseError::SerializationError)?;
-        Ok(WsMessageAxum::Text(string.into()))
+        let raw = rmp_serde::to_vec(&value).map_err(ParseError::SerializationError)?;
+        Ok(WsMessageAxum::Binary(raw.into()))
     }
 }
 
@@ -93,7 +93,7 @@ impl TryFrom<Message> for WsMessageTung {
     type Error = ParseError;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
-        let string = serde_json::to_string(&value).map_err(ParseError::SerializationError)?;
-        Ok(WsMessageTung::Text(string.into()))
+        let raw = rmp_serde::to_vec(&value).map_err(ParseError::SerializationError)?;
+        Ok(WsMessageTung::Binary(raw.into()))
     }
 }

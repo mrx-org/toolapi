@@ -35,9 +35,9 @@ pub enum LookupError {
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[error("serialization failed: {0}")]
-    SerializationError(serde_json::Error),
+    SerializationError(rmp_serde::encode::Error),
     #[error("deserialization failed: {0}")]
-    DeserializationError(serde_json::Error),
+    DeserializationError(rmp_serde::decode::Error),
     #[error("wrong message type (expected {expected:?}, found {found:?})")]
     WrongMessageType {
         expected: WsMessageType,
