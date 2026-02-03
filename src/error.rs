@@ -38,6 +38,10 @@ pub enum ParseError {
     SerializationError(rmp_serde::encode::Error),
     #[error("deserialization failed: {0}")]
     DeserializationError(rmp_serde::decode::Error),
+    #[error("compression failed: {0}")]
+    CompressionError(std::io::Error),
+    #[error("decompression failed: {0}")]
+    DecompressionError(std::io::Error),
     #[error("wrong message type (expected {expected:?}, found {found:?})")]
     WrongMessageType {
         expected: WsMessageType,
