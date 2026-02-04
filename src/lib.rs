@@ -10,11 +10,11 @@ mod connection;
 mod error;
 pub mod value;
 
-pub use connection::channel::Sender;
 pub use error::*;
 pub use value::{Value, ValueDict};
 
-type ToolFn = fn(ValueDict, Sender) -> Result<ValueDict, ToolError>;
+pub type MessageFn = dyn FnMut(String) -> Result<(), AbortReason>;
+pub type ToolFn = fn(ValueDict, &mut MessageFn) -> Result<ValueDict, ToolError>;
 
 #[tokio::main]
 pub async fn run_server(
@@ -54,7 +54,7 @@ pub fn call(
     let result = ws_client
         .read_result()?
         .ok_or(ToolCallError::ProtocolError)?;
-    ws_client.close()?; // TODO: we have the result, shouldn't we return it?
+    ws_client.close()?; // TODO: we have the result, shouldn't we return it even on error?
     result.map_err(ToolCallError::ToolReturnedError)
 }
 
@@ -73,9 +73,13 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
         .await?
         .ok_or(ConnectionError::ConnectionClosed)?;
     // Channel for sending messages to the client and abort signal back
-    let (msg_tx, mut msg_rx) = connection::channel::connect();
+    let (mut msg_tx, mut msg_rx) = connection::channel::connect();
     // Run the tool, give it the input and the channel to send messages
-    let result = tokio::task::spawn_blocking(move || tool(input, msg_tx));
+    let mut send_msg = move |msg| {
+        println!(" > {msg}");
+        msg_tx.send(msg)
+    };
+    let result = tokio::task::spawn_blocking(move || tool(input, &mut send_msg));
 
     // Run a loop which forwards tool messages to the client or abort messages to the tool
     loop {
