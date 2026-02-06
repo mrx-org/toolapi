@@ -1,8 +1,9 @@
 [package]
 name = "toolapi"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 
+license = "AGPL-3.0-only"
 license-file = "LICENSE"
 description = "MRX ToolAPI - connect clients and tools running in the cloud."
 homepage = "https://mrx-org.github.io/mrx-book/"
