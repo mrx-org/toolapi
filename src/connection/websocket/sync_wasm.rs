@@ -4,7 +4,7 @@
 
 use crate::{ToolError, ValueDict, error::ConnectionError};
 use futures::{SinkExt, StreamExt};
-use ws_stream_wasm::{WsMeta, WsMessage, WsStream};
+use ws_stream_wasm::{WsMeta, WsStream};
 
 use super::common::Message;
 
@@ -43,21 +43,15 @@ impl WsChannelSyncWasm {
     }
 
     pub async fn send_abort(&mut self) -> Result<(), ConnectionError> {
-        let bytes = Message::Abort
-            .to_bytes()
-            .map_err(ConnectionError::ParseError)?;
         self.ws_stream
-            .send(WsMessage::Binary(bytes))
+            .send(Message::Abort.try_into()?)
             .await
             .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
 
     pub async fn send_values(&mut self, values: ValueDict) -> Result<(), ConnectionError> {
-        let bytes = Message::Values(values)
-            .to_bytes()
-            .map_err(ConnectionError::ParseError)?;
         self.ws_stream
-            .send(WsMessage::Binary(bytes))
+            .send(Message::Values(values).try_into()?)
             .await
             .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
@@ -65,16 +59,8 @@ impl WsChannelSyncWasm {
     /// Fill the message buffer by reading the next message from the stream
     async fn read(&mut self) -> Result<(), ConnectionError> {
         if self.buffer.is_none() {
-            match self.ws_stream.next().await {
-                Some(WsMessage::Binary(bytes)) => {
-                    self.buffer = Some(
-                        Message::from_bytes(&bytes).map_err(ConnectionError::ParseError)?,
-                    );
-                }
-                Some(WsMessage::Text(_)) => {
-                    // Unexpected text message; skip it
-                }
-                None => {} // stream closed, buffer stays None
+            if let Some(msg) = self.ws_stream.next().await {
+                self.buffer = Some(msg.try_into()?);
             }
         }
 

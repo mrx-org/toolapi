@@ -16,6 +16,8 @@ pub enum Message {
 type WsMessageAxum = axum::extract::ws::Message;
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 type WsMessageTung = tungstenite::Message;
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
+type WsMessageWasm = ws_stream_wasm::WsMessage;
 
 /// Used for error messages only on message type mismatch
 #[derive(Debug)]
@@ -54,7 +56,17 @@ impl From<WsMessageTung> for WsMessageType {
     }
 }
 
-pub(super) fn decompress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
+impl From<WsMessageWasm> for WsMessageType {
+    fn from(value: WsMessageWasm) -> Self {
+        match value {
+            WsMessageWasm::Text(_) => Self::Text,
+            WsMessageWasm::Binary(_) => Self::Binary,
+        }
+    }
+}
+
+fn deserialize(raw: &[u8]) -> Result<Message, ParseError> {
     use ruzstd::io::Read;
     let mut decoder = ruzstd::decoding::StreamingDecoder::new(raw)
         .map_err(|e| ParseError::DecompressionError(std::io::Error::other(e)))?;
@@ -62,29 +74,16 @@ pub(super) fn decompress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
     decoder
         .read_to_end(&mut decompressed)
         .map_err(ParseError::DecompressionError)?;
-    Ok(decompressed)
+
+    rmp_serde::from_slice(&decompressed).map_err(ParseError::DeserializationError)
 }
 
-pub(super) fn compress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
+fn serialize(msg: &Message) -> Result<Vec<u8>, ParseError> {
+    let raw = rmp_serde::to_vec(msg).map_err(ParseError::SerializationError)?;
     Ok(ruzstd::encoding::compress_to_vec(
-        raw,
+        raw.as_slice(),
         ruzstd::encoding::CompressionLevel::Default,
     ))
-}
-
-#[cfg(all(feature = "client", target_arch = "wasm32"))]
-impl Message {
-    /// Serialize and compress a Message into bytes ready for sending
-    pub(super) fn to_bytes(&self) -> Result<Vec<u8>, ParseError> {
-        let raw = rmp_serde::to_vec(self).map_err(ParseError::SerializationError)?;
-        compress(&raw)
-    }
-
-    /// Decompress and deserialize a Message from raw bytes
-    pub(super) fn from_bytes(data: &[u8]) -> Result<Self, ParseError> {
-        let decompressed = decompress(data)?;
-        rmp_serde::from_slice(&decompressed).map_err(ParseError::DeserializationError)
-    }
 }
 
 #[cfg(feature = "server")]
@@ -93,11 +92,7 @@ impl TryFrom<WsMessageAxum> for Message {
 
     fn try_from(value: WsMessageAxum) -> Result<Self, Self::Error> {
         match value {
-            WsMessageAxum::Binary(raw) => {
-                let decompressed = decompress(raw.as_ref())?;
-                Ok(rmp_serde::from_slice(&decompressed)
-                    .map_err(ParseError::DeserializationError)?)
-            }
+            WsMessageAxum::Binary(raw) => deserialize(raw.as_ref()),
             msg => Err(ParseError::WrongMessageType {
                 expected: WsMessageType::Binary,
                 found: msg.into(),
@@ -112,11 +107,22 @@ impl TryFrom<WsMessageTung> for Message {
 
     fn try_from(value: WsMessageTung) -> Result<Self, Self::Error> {
         match value {
-            WsMessageTung::Binary(raw) => {
-                let decompressed = decompress(raw.as_ref())?;
-                Ok(rmp_serde::from_slice(&decompressed)
-                    .map_err(ParseError::DeserializationError)?)
-            }
+            WsMessageTung::Binary(raw) => deserialize(raw.as_ref()),
+            msg => Err(ParseError::WrongMessageType {
+                expected: WsMessageType::Binary,
+                found: msg.into(),
+            }),
+        }
+    }
+}
+
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
+impl TryFrom<WsMessageWasm> for Message {
+    type Error = ParseError;
+
+    fn try_from(value: WsMessageWasm) -> Result<Self, Self::Error> {
+        match value {
+            WsMessageWasm::Binary(raw) => deserialize(raw.as_ref()),
             msg => Err(ParseError::WrongMessageType {
                 expected: WsMessageType::Binary,
                 found: msg.into(),
@@ -130,9 +136,7 @@ impl TryFrom<Message> for WsMessageAxum {
     type Error = ParseError;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
-        let raw = rmp_serde::to_vec(&value).map_err(ParseError::SerializationError)?;
-        let compressed = compress(&raw)?;
-        Ok(WsMessageAxum::Binary(compressed.into()))
+        Ok(WsMessageAxum::Binary(serialize(&value)?.into()))
     }
 }
 
@@ -141,8 +145,15 @@ impl TryFrom<Message> for WsMessageTung {
     type Error = ParseError;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
-        let raw = rmp_serde::to_vec(&value).map_err(ParseError::SerializationError)?;
-        let compressed = compress(&raw)?;
-        Ok(WsMessageTung::Binary(compressed.into()))
+        Ok(WsMessageTung::Binary(serialize(&value)?.into()))
+    }
+}
+
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
+impl TryFrom<Message> for WsMessageWasm {
+    type Error = ParseError;
+
+    fn try_from(value: Message) -> Result<Self, Self::Error> {
+        Ok(WsMessageWasm::Binary(serialize(&value)?.into()))
     }
 }
