@@ -13,14 +13,14 @@ use super::common::Message;
 /// Uses the browser's `WebSocket` API via [`ws_stream_wasm`]. The API mirrors
 /// [`super::sync::WsChannelSync`] but with async methods where the native
 /// version would block.
-pub struct WsChannelSyncWasm {
+pub struct WsChannelClientWasm {
     ws_meta: WsMeta,
     ws_stream: WsStream,
     /// If we tried to read a message of one type but received another, the message is buffered here.
     buffer: Option<Message>,
 }
 
-impl WsChannelSyncWasm {
+impl WsChannelClientWasm {
     /// Connect to a WebSocket server. Resolves when the connection is open.
     pub async fn connect(addr: &str) -> Result<Self, ConnectionError> {
         let (ws_meta, ws_stream) = WsMeta::connect(addr, None)

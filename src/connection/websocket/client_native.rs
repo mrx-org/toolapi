@@ -5,13 +5,13 @@ use crate::{ToolError, ValueDict, error::ConnectionError};
 use std::net::TcpStream;
 use tungstenite::{client::IntoClientRequest, protocol::WebSocketConfig, stream::MaybeTlsStream};
 
-pub struct WsChannelSync {
+pub struct WsChannelClientNative {
     socket: tungstenite::WebSocket<MaybeTlsStream<TcpStream>>,
     /// If we tried to read a message of one type but received another, the message is buffered here.
     buffer: Option<super::common::Message>,
 }
 
-impl WsChannelSync {
+impl WsChannelClientNative {
     pub fn connect<Req: IntoClientRequest>(request: Req) -> Result<Self, ConnectionError> {
         let config = WebSocketConfig::default()
             .max_message_size(Some(256 * 1024 * 1024))

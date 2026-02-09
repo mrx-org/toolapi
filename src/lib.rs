@@ -142,7 +142,7 @@ pub fn call(
     mut on_message: impl FnMut(String) -> bool,
 ) -> Result<ValueDict, ToolCallError> {
     // Create a connection between client and server over WebSocket
-    let mut ws_client = connection::websocket::WsChannelSync::connect(addr)?;
+    let mut ws_client = connection::websocket::WsChannelClientNative::connect(addr)?;
     // Send the input parameters to the server
     ws_client.send_values(input)?;
 
@@ -198,7 +198,7 @@ pub async fn call(
     mut on_message: impl FnMut(String) -> bool,
 ) -> Result<ValueDict, ToolCallError> {
     // Create a connection between client and server over WebSocket
-    let mut ws_client = connection::websocket::WsChannelSyncWasm::connect(addr).await?;
+    let mut ws_client = connection::websocket::WsChannelClientWasm::connect(addr).await?;
     // Send the input parameters to the server
     ws_client.send_values(input).await?;
 

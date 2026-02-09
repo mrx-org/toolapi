@@ -36,7 +36,7 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
     // https://docs.rs/axum/latest/axum/extract/ws/index.html#read-and-write-concurrently
 
     // Wrap the socket in a helper struct
-    let mut ws_server = crate::connection::websocket::WsChannelAsync::new(socket);
+    let mut ws_server = crate::connection::websocket::WsChannelServer::new(socket);
     // First, read the input from the socket
     let input = ws_server
         .read_values()
