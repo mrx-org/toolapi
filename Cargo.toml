@@ -19,6 +19,8 @@ client = [
     "dep:tungstenite",
     "dep:rustls",
     # These dependencies only exist on wasm builds
+    "dep:ws_stream_wasm",
+    "dep:futures"
 ]
 
 [dependencies]
@@ -52,12 +54,8 @@ rustls = { version = "0.23", features = ["ring"], default-features = false, opti
 # CLIENT   (wasm)
 # ===============
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features = ["WebSocket", "BinaryType", "MessageEvent", "ErrorEvent", "CloseEvent", "Event"] }
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-futures-channel = "0.3"
-futures-core = "0.3"
+ws_stream_wasm = { version = "0.7", optional = true }
+futures = { version =  "0.3", optional = true }
 
 # Transient dependency - need to set features correctly for it to build for wasm
 getrandom = { version = "0.2", features = ["js"] }
