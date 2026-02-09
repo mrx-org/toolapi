@@ -54,7 +54,7 @@ impl From<WsMessageTung> for WsMessageType {
     }
 }
 
-fn decompress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
+pub(super) fn decompress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
     use ruzstd::io::Read;
     let mut decoder = ruzstd::decoding::StreamingDecoder::new(raw)
         .map_err(|e| ParseError::DecompressionError(std::io::Error::other(e)))?;
@@ -65,11 +65,26 @@ fn decompress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
     Ok(decompressed)
 }
 
-fn compress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
+pub(super) fn compress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
     Ok(ruzstd::encoding::compress_to_vec(
         raw,
         ruzstd::encoding::CompressionLevel::Default,
     ))
+}
+
+#[cfg(all(feature = "wasm-client", target_arch = "wasm32"))]
+impl Message {
+    /// Serialize and compress a Message into bytes ready for sending
+    pub(super) fn to_bytes(&self) -> Result<Vec<u8>, ParseError> {
+        let raw = rmp_serde::to_vec(self).map_err(ParseError::SerializationError)?;
+        compress(&raw)
+    }
+
+    /// Decompress and deserialize a Message from raw bytes
+    pub(super) fn from_bytes(data: &[u8]) -> Result<Self, ParseError> {
+        let decompressed = decompress(data)?;
+        rmp_serde::from_slice(&decompressed).map_err(ParseError::DeserializationError)
+    }
 }
 
 #[cfg(feature = "server")]

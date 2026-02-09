@@ -59,6 +59,9 @@ pub enum ConnectionError {
     #[cfg(feature = "server")]
     #[error("WebSocket error (axum): {0}")]
     AxumError(#[from] axum::Error),
+    #[cfg(feature = "wasm-client")]
+    #[error("WebSocket error (wasm): {0}")]
+    WasmError(String),
     #[error("parsing a WebSocket message failed: {0}")]
     ParseError(#[from] ParseError),
     #[error("connection closed")]
