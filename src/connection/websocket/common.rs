@@ -54,6 +54,24 @@ impl From<WsMessageTung> for WsMessageType {
     }
 }
 
+fn decompress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
+    use ruzstd::io::Read;
+    let mut decoder = ruzstd::decoding::StreamingDecoder::new(raw)
+        .map_err(|e| ParseError::DecompressionError(std::io::Error::other(e)))?;
+    let mut decompressed = Vec::new();
+    decoder
+        .read_to_end(&mut decompressed)
+        .map_err(ParseError::DecompressionError)?;
+    Ok(decompressed)
+}
+
+fn compress(raw: &[u8]) -> Result<Vec<u8>, ParseError> {
+    Ok(ruzstd::encoding::compress_to_vec(
+        raw,
+        ruzstd::encoding::CompressionLevel::Default,
+    ))
+}
+
 #[cfg(feature = "server")]
 impl TryFrom<WsMessageAxum> for Message {
     type Error = ParseError;
@@ -61,8 +79,7 @@ impl TryFrom<WsMessageAxum> for Message {
     fn try_from(value: WsMessageAxum) -> Result<Self, Self::Error> {
         match value {
             WsMessageAxum::Binary(raw) => {
-                let decompressed =
-                    zstd::decode_all(raw.as_ref()).map_err(ParseError::DecompressionError)?;
+                let decompressed = decompress(raw.as_ref())?;
                 Ok(rmp_serde::from_slice(&decompressed)
                     .map_err(ParseError::DeserializationError)?)
             }
@@ -81,8 +98,7 @@ impl TryFrom<WsMessageTung> for Message {
     fn try_from(value: WsMessageTung) -> Result<Self, Self::Error> {
         match value {
             WsMessageTung::Binary(raw) => {
-                let decompressed =
-                    zstd::decode_all(raw.as_ref()).map_err(ParseError::DecompressionError)?;
+                let decompressed = decompress(raw.as_ref())?;
                 Ok(rmp_serde::from_slice(&decompressed)
                     .map_err(ParseError::DeserializationError)?)
             }
@@ -94,17 +110,13 @@ impl TryFrom<WsMessageTung> for Message {
     }
 }
 
-/// Compression level for zstd (0 = default, typically 3)
-const ZSTD_COMPRESSION_LEVEL: i32 = 0;
-
 #[cfg(feature = "server")]
 impl TryFrom<Message> for WsMessageAxum {
     type Error = ParseError;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
         let raw = rmp_serde::to_vec(&value).map_err(ParseError::SerializationError)?;
-        let compressed = zstd::encode_all(raw.as_slice(), ZSTD_COMPRESSION_LEVEL)
-            .map_err(ParseError::CompressionError)?;
+        let compressed = compress(&raw)?;
         Ok(WsMessageAxum::Binary(compressed.into()))
     }
 }
@@ -115,8 +127,7 @@ impl TryFrom<Message> for WsMessageTung {
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
         let raw = rmp_serde::to_vec(&value).map_err(ParseError::SerializationError)?;
-        let compressed = zstd::encode_all(raw.as_slice(), ZSTD_COMPRESSION_LEVEL)
-            .map_err(ParseError::CompressionError)?;
+        let compressed = compress(&raw)?;
         Ok(WsMessageTung::Binary(compressed.into()))
     }
 }

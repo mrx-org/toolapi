@@ -22,7 +22,7 @@ thiserror = "2.0.18"
 num-complex = { version = "0.4.6", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 rmp-serde = "1.3.1"
-zstd = "0.13.3"
+ruzstd = "0.8.2"
 
 # SERVER
 axum = { version = "0.8.8", features = ["ws"], optional = true }
@@ -36,3 +36,7 @@ tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"], opti
 # On fly.io, native-tls crashes on debian:bookworm-slim (libssl.so.3 not found).
 # herefore we define tungstenite explicitly and enable its rustls feature.
 rustls = { version = "0.23", features = ["ring"], default-features = false, optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+getrandom_0_3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
