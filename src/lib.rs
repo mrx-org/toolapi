@@ -135,14 +135,14 @@ pub fn run_server(tool: ToolFn, index_html: Option<&'static str>) -> Result<(), 
 ///
 /// call("wss://tool-xxx-flyio.fly.dev/tool", input, on_message);
 /// ```
-#[cfg(feature = "client")]
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub fn call(
     addr: &str,
     input: ValueDict,
     mut on_message: impl FnMut(String) -> bool,
 ) -> Result<ValueDict, ToolCallError> {
     // Create a connection between client and server over WebSocket
-    let mut ws_client = connection::websocket::WsChannelSync::connect(addr)?;
+    let mut ws_client = connection::websocket::WsChannelClientNative::connect(addr)?;
     // Send the input parameters to the server
     ws_client.send_values(input)?;
 
@@ -162,5 +162,62 @@ pub fn call(
         .ok_or(ToolCallError::ProtocolError)?;
     // TODO: add a variant `ToolCallError::CloseFailed` which contains the already received result
     ws_client.close()?;
+    result.map_err(ToolCallError::ToolReturnedError)
+}
+
+/// Execute a tool hosted at url `addr` with inputs `input`.
+///
+/// This is the async version of [`call`] for use on `wasm32` targets, where
+/// blocking the main thread is not possible. The API is otherwise identical:
+///
+/// - `addr`: WebSocket url of the server, e.g.: `"wss://tool-xxx-flyio.fly.dev/tool"`
+/// - `input`: [`ValueDict`] of parameters that are passed to the tool
+/// - `on_message`: callback function that receives a message string and returns
+///   `true` if the tool should continue running or `false` if it should abort.
+///
+/// `on_message` could be a closure containing a stop time, requesting the tool
+/// to abort after a timeout; it could carry a channel to GUI user abort button.
+///
+/// # Example
+/// ```no_run
+/// use toolapi::call;
+///
+/// async fn run() {
+///     fn on_message(msg: String) -> bool {
+///         true
+///     }
+///
+///     let input = todo!();
+///     let result = call("wss://tool-xxx-flyio.fly.dev/tool", input, on_message).await;
+/// }
+/// ```
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
+pub async fn call(
+    addr: &str,
+    input: ValueDict,
+    mut on_message: impl FnMut(String) -> bool,
+) -> Result<ValueDict, ToolCallError> {
+    // Create a connection between client and server over WebSocket
+    let mut ws_client = connection::websocket::WsChannelClientWasm::connect(addr).await?;
+    // Send the input parameters to the server
+    ws_client.send_values(input).await?;
+
+    // Loop over messages sent by the server and ask the callback if we should abort
+    while let Some(msg) = ws_client.read_message().await? {
+        if !on_message(msg) {
+            // abort was requested by client callback
+            ws_client.send_abort().await?;
+            ws_client.close().await?;
+            return Err(ToolCallError::OnMessageAbort);
+        }
+    }
+
+    // Read result, handle shutdown, return result
+    let result = ws_client
+        .read_result()
+        .await?
+        .ok_or(ToolCallError::ProtocolError)?;
+    // TODO: add a variant `ToolCallError::CloseFailed` which contains the already received result
+    ws_client.close().await?;
     result.map_err(ToolCallError::ToolReturnedError)
 }

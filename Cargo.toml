@@ -1,6 +1,6 @@
 [package]
 name = "toolapi"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 
 license = "AGPL-3.0-only"
@@ -12,9 +12,16 @@ keywords = []
 categories = []
 
 [features]
-default = ["server", "client"]
+default = ["client", "server"]
 server = ["dep:axum", "dep:tokio", "dep:tokio-tungstenite", "dep:rustls"]
-client = ["dep:tungstenite", "dep:rustls"]
+client = [
+    # These dependencies only exist on non-wasm builds
+    "dep:tungstenite",
+    "dep:rustls",
+    # These dependencies only exist on wasm builds
+    "dep:ws_stream_wasm",
+    "dep:futures"
+]
 
 [dependencies]
 # Always needed (errors, serialization)
@@ -24,19 +31,32 @@ serde = { version = "1.0.228", features = ["derive"] }
 rmp-serde = "1.3.1"
 ruzstd = "0.8.2"
 
-# SERVER
+
+# ===============
+# SERVER (native)
+# ===============
 axum = { version = "0.8.8", features = ["ws"], optional = true }
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"], optional = true }
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"], optional = true }
 
-# CLIENT
+
+# ===============
+# CLIENT (native)
+# ===============
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"], optional = true }
 
-# For using secure websockets (wss://), tungstenite needs a TLS lib enabled.
-# On fly.io, native-tls crashes on debian:bookworm-slim (libssl.so.3 not found).
-# herefore we define tungstenite explicitly and enable its rustls feature.
+# Transient dependency - need to set features correctly for it to build on fly.io
 rustls = { version = "0.23", features = ["ring"], default-features = false, optional = true }
 
+
+# ===============
+# CLIENT   (wasm)
+# ===============
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+ws_stream_wasm = { version = "0.7", optional = true }
+futures = { version =  "0.3", optional = true }
+
+# Transient dependency - need to set features correctly for it to build for wasm
 getrandom = { version = "0.2", features = ["js"] }
 getrandom_0_3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }

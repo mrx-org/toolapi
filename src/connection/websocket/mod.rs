@@ -1,11 +1,17 @@
-#[cfg(feature = "server")]
-mod r#async;
 mod common;
-#[cfg(feature = "client")]
-mod sync;
+pub use common::WsMessageType;
 
 #[cfg(feature = "server")]
-pub use r#async::WsChannelAsync;
-pub use common::WsMessageType;
-#[cfg(feature = "client")]
-pub use sync::WsChannelSync;
+mod server;
+#[cfg(feature = "server")]
+pub use server::WsChannelServer;
+
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
+mod client_native;
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
+pub use client_native::WsChannelClientNative;
+
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
+mod client_wasm;
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
+pub use client_wasm::WsChannelClientWasm;
