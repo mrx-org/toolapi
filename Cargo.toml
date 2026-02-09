@@ -4,7 +4,6 @@ version = "0.2.2"
 edition = "2024"
 
 license = "AGPL-3.0-only"
-license-file = "LICENSE"
 description = "MRX ToolAPI - connect clients and tools running in the cloud."
 homepage = "https://mrx-org.github.io/mrx-book/"
 repository = "https://github.com/mrx-org/toolapi"
@@ -12,17 +11,28 @@ readme = "README.md"
 keywords = []
 categories = []
 
+[features]
+default = ["server", "client"]
+server = ["dep:axum", "dep:tokio", "dep:tokio-tungstenite", "dep:rustls"]
+client = ["dep:tungstenite", "dep:rustls"]
+
 [dependencies]
+# Always needed (errors, serialization)
+thiserror = "2.0.18"
+num-complex = { version = "0.4.6", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+rmp-serde = "1.3.1"
+zstd = "0.13.3"
+
+# SERVER
+axum = { version = "0.8.8", features = ["ws"], optional = true }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"], optional = true }
+tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"], optional = true }
+
+# CLIENT
+tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"], optional = true }
+
 # For using secure websockets (wss://), tungstenite needs a TLS lib enabled.
 # On fly.io, native-tls crashes on debian:bookworm-slim (libssl.so.3 not found).
 # herefore we define tungstenite explicitly and enable its rustls feature.
-rustls = { version = "0.23", features = ["ring"], default-features = false }
-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
-tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
-axum = { version = "0.8.8", features = ["ws"] }
-serde = { version = "1.0.228", features = ["derive"] }
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
-thiserror = "2.0.18"
-num-complex = { version = "0.4.6", features = ["serde"] }
-rmp-serde = "1.3.1"
-zstd = "0.13.3"
+rustls = { version = "0.23", features = ["ring"], default-features = false, optional = true }

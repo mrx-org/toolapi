@@ -1,3 +1,4 @@
+#[cfg(feature = "server")]
 use axum::{
     Router,
     routing::{any, get},
@@ -5,6 +6,7 @@ use axum::{
 
 mod connection;
 mod error;
+#[cfg(feature = "server")]
 mod util;
 
 // =====================================
@@ -24,6 +26,7 @@ pub use value::{Value, ValueDict};
 /// as a logging function while propagating errors to abort on request.
 ///
 /// See [`run_server`] for an example on how to use it
+#[cfg(feature = "server")]
 pub type MessageFn = dyn FnMut(String) -> Result<(), AbortReason>;
 
 /// Signature of tool functions passed to [`run_server`].
@@ -43,6 +46,7 @@ pub type MessageFn = dyn FnMut(String) -> Result<(), AbortReason>;
 ///     Ok(input)
 /// }
 /// ```
+#[cfg(feature = "server")]
 pub type ToolFn = fn(ValueDict, &mut MessageFn) -> Result<ValueDict, ToolError>;
 
 /// Starts a server, running `tool` in parallel for every requesting client.
@@ -81,6 +85,7 @@ pub type ToolFn = fn(ValueDict, &mut MessageFn) -> Result<ValueDict, ToolError>;
 ///     </html>
 /// ";
 /// ```
+#[cfg(feature = "server")]
 pub fn run_server(tool: ToolFn, index_html: Option<&'static str>) -> Result<(), std::io::Error> {
     // Setup routes and state to pass data to handlers
     let state = util::ToolState { tool, index_html };
@@ -102,32 +107,33 @@ pub fn run_server(tool: ToolFn, index_html: Option<&'static str>) -> Result<(), 
 }
 
 /// Execute a tool hosted at url `addr` with inputs `input`.
-/// 
+///
 /// This is meant to act as close as possible to a simple local function call.
 /// Code should not worry about the fact that this sends the inputs to a server,
 /// blocks on waiting for it to finish and returns the computed result. The
 /// only hint is the `on_message` callback: A function that will be called on
 /// every message sent by the server, which can request it to abort.
-/// 
+///
 /// - `addr`: WebSocket url of the server, e.g.: `"wss://tool-xxx-flyio.fly.dev/tool"`
 /// - `input`: [`ValueDict`] of parameters that are passed to the tool
 /// - `on_message`: callback function that receives a message string and returns
 ///   `true` if the tool should continue running or `false` if it should abort.
-/// 
+///
 /// `on_message` could be a closure containing a stop time, requesting the tool
 /// to abort after a timeout; it could carry a channel to GUI user abort button.
-/// 
+///
 /// # Example
 /// ```no_run
 /// fn on_message(msg: String) -> bool {
 ///     println!("[TOOL] {msg}");
 ///     true
 /// }
-/// 
+///
 /// let input = todo!();
-/// 
+///
 /// call("wss://tool-xxx-flyio.fly.dev/tool", input, on_message)
 /// ```
+#[cfg(feature = "client")]
 pub fn call(
     addr: &str,
     input: ValueDict,

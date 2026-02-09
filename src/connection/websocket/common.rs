@@ -12,8 +12,11 @@ pub enum Message {
     Abort,
 }
 
+#[cfg(feature = "server")]
 type WsMessageAxum = axum::extract::ws::Message;
+#[cfg(feature = "client")]
 type WsMessageTung = tungstenite::Message;
+
 /// Used for error messages only on message type mismatch
 #[derive(Debug)]
 pub enum WsMessageType {
@@ -24,6 +27,7 @@ pub enum WsMessageType {
     Close,
 }
 
+#[cfg(feature = "server")]
 impl From<WsMessageAxum> for WsMessageType {
     fn from(value: WsMessageAxum) -> Self {
         match value {
@@ -36,6 +40,7 @@ impl From<WsMessageAxum> for WsMessageType {
     }
 }
 
+#[cfg(feature = "client")]
 impl From<WsMessageTung> for WsMessageType {
     fn from(value: WsMessageTung) -> Self {
         match value {
@@ -49,6 +54,7 @@ impl From<WsMessageTung> for WsMessageType {
     }
 }
 
+#[cfg(feature = "server")]
 impl TryFrom<WsMessageAxum> for Message {
     type Error = ParseError;
 
@@ -68,6 +74,7 @@ impl TryFrom<WsMessageAxum> for Message {
     }
 }
 
+#[cfg(feature = "client")]
 impl TryFrom<WsMessageTung> for Message {
     type Error = ParseError;
 
@@ -90,6 +97,7 @@ impl TryFrom<WsMessageTung> for Message {
 /// Compression level for zstd (0 = default, typically 3)
 const ZSTD_COMPRESSION_LEVEL: i32 = 0;
 
+#[cfg(feature = "server")]
 impl TryFrom<Message> for WsMessageAxum {
     type Error = ParseError;
 
@@ -101,6 +109,7 @@ impl TryFrom<Message> for WsMessageAxum {
     }
 }
 
+#[cfg(feature = "client")]
 impl TryFrom<Message> for WsMessageTung {
     type Error = ParseError;
 

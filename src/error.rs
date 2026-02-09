@@ -8,6 +8,7 @@ use crate::connection::websocket::WsMessageType;
 pub enum AbortReason {
     #[error("requested by client")]
     RequestedByClient,
+    #[cfg(feature = "server")]
     #[error("channel error: {0}")]
     ChannelError(#[from] tokio::sync::mpsc::error::SendError<String>),
     #[error("connection closed")]
@@ -52,14 +53,17 @@ pub enum ParseError {
 /// Returned by the WebSocket impls when trying to connect, send, recv
 #[derive(Error, Debug)]
 pub enum ConnectionError {
+    #[cfg(feature = "client")]
     #[error("WebSocket error (tungstenite): {0}")]
     TungsteniteError(#[from] tungstenite::Error),
+    #[cfg(feature = "server")]
     #[error("WebSocket error (axum): {0}")]
     AxumError(#[from] axum::Error),
     #[error("parsing a WebSocket message failed: {0}")]
     ParseError(#[from] ParseError),
     #[error("connection closed")]
     ConnectionClosed,
+    #[cfg(feature = "server")]
     #[error("the tool crashed, err='{0}'")]
     ToolPanic(#[from] tokio::task::JoinError),
 }

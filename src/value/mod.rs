@@ -50,8 +50,7 @@ impl<const N: usize> From<[(&str, Value); N]> for ValueDict {
     }
 }
 
-impl FromIterator<(String, Value)> for ValueDict
-{
+impl FromIterator<(String, Value)> for ValueDict {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
         Self(HashMap::from_iter(iter))
     }
