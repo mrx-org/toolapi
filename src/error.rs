@@ -53,15 +53,8 @@ pub enum ParseError {
 /// Returned by the WebSocket impls when trying to connect, send, recv
 #[derive(Error, Debug)]
 pub enum ConnectionError {
-    #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
-    #[error("WebSocket error (tungstenite): {0}")]
-    TungsteniteError(#[from] tungstenite::Error),
-    #[cfg(feature = "server")]
-    #[error("WebSocket error (axum): {0}")]
-    AxumError(#[from] axum::Error),
-    #[cfg(all(feature = "client", target_arch = "wasm32"))]
-    #[error("WebSocket error (wasm): {0}")]
-    WasmError(String),
+    #[error("WebSocket error: {0}")]
+    WebSocketError(String),
     #[error("parsing a WebSocket message failed: {0}")]
     ParseError(#[from] ParseError),
     #[error("connection closed")]

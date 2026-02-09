@@ -21,8 +21,10 @@ impl WsChannelAsync {
     }
 
     pub async fn send_message(&mut self, msg: String) -> Result<(), ConnectionError> {
-        self.socket.send(Message::Message(msg).try_into()?).await?;
-        Ok(())
+        self.socket
+            .send(Message::Message(msg).try_into()?)
+            .await
+            .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
 
     pub async fn send_result(
@@ -31,8 +33,8 @@ impl WsChannelAsync {
     ) -> Result<(), ConnectionError> {
         self.socket
             .send(Message::Result(result).try_into()?)
-            .await?;
-        Ok(())
+            .await
+            .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
 
     async fn read(&mut self) -> Result<(), ConnectionError> {
@@ -40,7 +42,8 @@ impl WsChannelAsync {
             // Difference to tungstenite: there is no can_read() method;
             // instead None is returned from a closed stream.
             if let Some(msg) = self.socket.recv().await {
-                self.buffer = Some(msg?.try_into()?)
+                let msg = msg.map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
+                self.buffer = Some(msg.try_into()?)
             }
         }
 

@@ -17,7 +17,8 @@ impl WsChannelSync {
             .max_message_size(Some(256 * 1024 * 1024))
             .max_frame_size(Some(256 * 1024 * 1024));
         // TODO: should we look at the (ignored _) response?
-        let (socket, _) = tungstenite::client::connect_with_config(request, Some(config), 3)?;
+        let (socket, _) = tungstenite::client::connect_with_config(request, Some(config), 3)
+            .map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
 
         Ok(Self {
             socket,
@@ -26,19 +27,23 @@ impl WsChannelSync {
     }
 
     pub fn close(mut self) -> Result<(), ConnectionError> {
-        self.socket.close(None)?;
+        self.socket
+            .close(None)
+            .map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
         Ok(())
     }
 
     pub fn send_abort(&mut self) -> Result<(), ConnectionError> {
         self.socket
-            .send(super::common::Message::Abort.try_into()?)?;
+            .send(super::common::Message::Abort.try_into()?)
+            .map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
         Ok(())
     }
 
     pub fn send_values(&mut self, values: ValueDict) -> Result<(), ConnectionError> {
         self.socket
-            .send(super::common::Message::Values(values).try_into()?)?;
+            .send(super::common::Message::Values(values).try_into()?)
+            .map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
         Ok(())
     }
 
@@ -46,7 +51,11 @@ impl WsChannelSync {
     fn read(&mut self) -> Result<(), ConnectionError> {
         // Only try to read if we need to and are able to:
         if self.buffer.is_none() && self.socket.can_read() {
-            self.buffer = Some(self.socket.read()?.try_into()?);
+            let data = self
+                .socket
+                .read()
+                .map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
+            self.buffer = Some(data.try_into()?);
         }
 
         Ok(())

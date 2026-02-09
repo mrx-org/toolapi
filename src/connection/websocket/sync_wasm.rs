@@ -6,8 +6,8 @@ use crate::{ToolError, ValueDict, error::ConnectionError};
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use web_sys::{BinaryType, CloseEvent, ErrorEvent, Event, MessageEvent, WebSocket};
 
 use super::common::Message;
@@ -40,7 +40,8 @@ impl WsChannelSyncWasm {
     /// Connect to a WebSocket server. Resolves when the connection is open.
     pub async fn connect(addr: &str) -> Result<Self, ConnectionError> {
         let socket = WebSocket::new(addr)
-            .map_err(|e| ConnectionError::WasmError(js_to_string(&e)))?;
+            .map_err(|e| ConnectionError::WebSocketError(js_to_string(&e)))
+            .map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
         socket.set_binary_type(BinaryType::Arraybuffer);
 
         // Wait for the connection to open (or fail)
@@ -64,9 +65,8 @@ impl WsChannelSyncWasm {
         // onerror: push an error into the channel
         let tx_err = tx.clone();
         let onerror = Closure::wrap(Box::new(move |_e: ErrorEvent| {
-            let _ = tx_err.unbounded_send(Err(ConnectionError::WasmError(
-                "WebSocket error".into(),
-            )));
+            let _ =
+                tx_err.unbounded_send(Err(ConnectionError::WebSocketError("WebSocket error".into())));
         }) as Box<dyn FnMut(ErrorEvent)>);
         socket.set_onerror(Some(onerror.as_ref().unchecked_ref()));
 
@@ -102,7 +102,7 @@ impl WsChannelSyncWasm {
         let tx_err = Rc::clone(&tx);
         let onerror = Closure::once(move |_: ErrorEvent| {
             if let Some(tx) = tx_err.borrow_mut().take() {
-                let _ = tx.send(Err(ConnectionError::WasmError(
+                let _ = tx.send(Err(ConnectionError::WebSocketError(
                     "WebSocket connection failed".into(),
                 )));
             }
@@ -119,7 +119,7 @@ impl WsChannelSyncWasm {
 
         let result = rx
             .await
-            .map_err(|_| ConnectionError::WasmError("open channel dropped".into()))?;
+            .map_err(|_| ConnectionError::WebSocketError("open channel dropped".into()))?;
 
         // Clear the temporary open/error/close handlers (they'll be replaced after connect)
         socket.set_onopen(None);
@@ -132,7 +132,7 @@ impl WsChannelSyncWasm {
     pub fn close(self) -> Result<(), ConnectionError> {
         self.socket
             .close()
-            .map_err(|e| ConnectionError::WasmError(js_to_string(&e)))
+            .map_err(|e| ConnectionError::WebSocketError(js_to_string(&e)))
     }
 
     pub fn send_abort(&self) -> Result<(), ConnectionError> {
@@ -141,7 +141,7 @@ impl WsChannelSyncWasm {
             .map_err(ConnectionError::ParseError)?;
         self.socket
             .send_with_u8_array(&bytes)
-            .map_err(|e| ConnectionError::WasmError(js_to_string(&e)))
+            .map_err(|e| ConnectionError::WebSocketError(js_to_string(&e)))
     }
 
     pub fn send_values(&self, values: ValueDict) -> Result<(), ConnectionError> {
@@ -150,7 +150,7 @@ impl WsChannelSyncWasm {
             .map_err(ConnectionError::ParseError)?;
         self.socket
             .send_with_u8_array(&bytes)
-            .map_err(|e| ConnectionError::WasmError(js_to_string(&e)))
+            .map_err(|e| ConnectionError::WebSocketError(js_to_string(&e)))
     }
 
     /// Fill the message buffer by reading the next message from the channel
@@ -165,9 +165,8 @@ impl WsChannelSyncWasm {
 
             match next {
                 Some(Ok(bytes)) => {
-                    self.buffer = Some(
-                        Message::from_bytes(&bytes).map_err(ConnectionError::ParseError)?,
-                    );
+                    self.buffer =
+                        Some(Message::from_bytes(&bytes).map_err(ConnectionError::ParseError)?);
                 }
                 Some(Err(e)) => return Err(e),
                 None => {} // channel closed (WebSocket closed), buffer stays None
