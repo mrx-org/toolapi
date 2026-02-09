@@ -42,7 +42,7 @@ pub type MessageFn = dyn FnMut(String) -> Result<(), AbortReason>;
 ///
 /// /// Tool which debug prints the input arguents and returns them to sender.
 /// fn tool(input: ValueDict, send_msg: &mut MessageFn) -> Result<ValueDict, ToolError> {
-///     send_msg(format!("Args: {input:?}"))?;
+///     send_msg(format!("Args: {input:?}")).map_err(|_| ToolError::Abort)?;
 ///     Ok(input)
 /// }
 /// ```
@@ -68,7 +68,7 @@ pub type ToolFn = fn(ValueDict, &mut MessageFn) -> Result<ValueDict, ToolError>;
 /// }
 ///
 /// fn tool(input: ValueDict, send_msg: &mut MessageFn) -> Result<ValueDict, ToolError> {
-///     send_msg(format!("Args: {input:?}"))?;
+///     send_msg(format!("Args: {input:?}")).map_err(|_| ToolError::Abort)?;
 ///     Ok(input)
 /// }
 ///
@@ -124,6 +124,8 @@ pub fn run_server(tool: ToolFn, index_html: Option<&'static str>) -> Result<(), 
 ///
 /// # Example
 /// ```no_run
+/// # use toolapi::call;
+///
 /// fn on_message(msg: String) -> bool {
 ///     println!("[TOOL] {msg}");
 ///     true
@@ -131,7 +133,7 @@ pub fn run_server(tool: ToolFn, index_html: Option<&'static str>) -> Result<(), 
 ///
 /// let input = todo!();
 ///
-/// call("wss://tool-xxx-flyio.fly.dev/tool", input, on_message)
+/// call("wss://tool-xxx-flyio.fly.dev/tool", input, on_message);
 /// ```
 #[cfg(feature = "client")]
 pub fn call(
