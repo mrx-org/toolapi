@@ -135,7 +135,7 @@ pub fn run_server(tool: ToolFn, index_html: Option<&'static str>) -> Result<(), 
 ///
 /// call("wss://tool-xxx-flyio.fly.dev/tool", input, on_message);
 /// ```
-#[cfg(feature = "client")]
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub fn call(
     addr: &str,
     input: ValueDict,
@@ -165,7 +165,7 @@ pub fn call(
     result.map_err(ToolCallError::ToolReturnedError)
 }
 
-/// Execute a tool hosted at url `addr` with inputs `input` (wasm version).
+/// Execute a tool hosted at url `addr` with inputs `input`.
 ///
 /// This is the async version of [`call`] for use on `wasm32` targets, where
 /// blocking the main thread is not possible. The API is otherwise identical:
@@ -175,8 +175,11 @@ pub fn call(
 /// - `on_message`: callback function that receives a message string and returns
 ///   `true` if the tool should continue running or `false` if it should abort.
 ///
+/// `on_message` could be a closure containing a stop time, requesting the tool
+/// to abort after a timeout; it could carry a channel to GUI user abort button.
+///
 /// # Example
-/// ```ignore
+/// ```no_run
 /// use toolapi::call;
 ///
 /// async fn run() {
@@ -188,7 +191,7 @@ pub fn call(
 ///     let result = call("wss://tool-xxx-flyio.fly.dev/tool", input, on_message).await;
 /// }
 /// ```
-#[cfg(all(feature = "wasm-client", target_arch = "wasm32"))]
+#[cfg(all(feature = "client", target_arch = "wasm32"))]
 pub async fn call_wasm(
     addr: &str,
     input: ValueDict,

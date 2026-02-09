@@ -12,10 +12,14 @@ keywords = []
 categories = []
 
 [features]
-default = ["server", "client"]
+default = ["client", "server"]
 server = ["dep:axum", "dep:tokio", "dep:tokio-tungstenite", "dep:rustls"]
-client = ["dep:tungstenite", "dep:rustls"]
-wasm-client = []
+client = [
+    # These dependencies only exist on non-wasm builds
+    "dep:tungstenite",
+    "dep:rustls",
+    # These dependencies only exist on wasm builds
+]
 
 [dependencies]
 # Always needed (errors, serialization)
@@ -25,27 +29,36 @@ serde = { version = "1.0.228", features = ["derive"] }
 rmp-serde = "1.3.1"
 ruzstd = "0.8.2"
 
-# SERVER
+
+# ===============
+# SERVER (native)
+# ===============
 axum = { version = "0.8.8", features = ["ws"], optional = true }
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"], optional = true }
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"], optional = true }
 
+
+# ===============
 # CLIENT (native)
+# ===============
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"], optional = true }
 
-# For using secure websockets (wss://), tungstenite needs a TLS lib enabled.
-# On fly.io, native-tls crashes on debian:bookworm-slim (libssl.so.3 not found).
-# herefore we define tungstenite explicitly and enable its rustls feature.
+# Transient dependency - need to set features correctly for it to build on fly.io
 rustls = { version = "0.23", features = ["ring"], default-features = false, optional = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
-getrandom_0_3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 
-# CLIENT (wasm) - only compiled on wasm32 targets
+# ===============
+# CLIENT   (wasm)
+# ===============
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["WebSocket", "BinaryType", "MessageEvent", "ErrorEvent", "CloseEvent", "Event"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 futures-channel = "0.3"
 futures-core = "0.3"
+
+# Transient dependency - need to set features correctly for it to build for wasm
+getrandom = { version = "0.2", features = ["js"] }
+getrandom_0_3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
