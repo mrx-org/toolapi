@@ -2,6 +2,8 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.3.2**
+- `ruzstd` only implements compression mode `Fastest` - switch to avoid crash
 - **toolapi 0.3.1**
 - Replace `zstd` (C dependency) with `ruzstd` (pure Rust) for wasm32 compatibility
 - Add wasm32 WebSocket client using `ws_stream_wasm`, selected automatically by target

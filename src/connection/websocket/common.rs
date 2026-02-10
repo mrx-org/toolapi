@@ -82,7 +82,7 @@ fn serialize(msg: &Message) -> Result<Vec<u8>, ParseError> {
     let raw = rmp_serde::to_vec(msg).map_err(ParseError::SerializationError)?;
     Ok(ruzstd::encoding::compress_to_vec(
         raw.as_slice(),
-        ruzstd::encoding::CompressionLevel::Default,
+        ruzstd::encoding::CompressionLevel::Fastest,
     ))
 }
 
