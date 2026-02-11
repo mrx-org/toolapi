@@ -13,10 +13,11 @@ mod util;
 // Public API of toolapi
 // =====================================
 
+pub mod value_legacy;
 pub mod value;
 
 pub use error::*;
-pub use value::{Value, ValueDict};
+pub use value_legacy::{Value, ValueDict};
 
 /// Function which prints a message, sends it to the client, and returns weather
 /// the client requested to abort the running tool.
