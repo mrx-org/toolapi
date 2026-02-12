@@ -8,6 +8,9 @@
 
 use serde::{Deserialize, Serialize};
 
+mod extract;
+mod utils;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     // Atomic types - newtypes for consistency
@@ -70,7 +73,7 @@ pub mod structured {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Volume {
         pub shape: [u64; 3],
-        pub affine: [[f64; 3]; 4],
+        pub affine: [[f64; 4]; 3],
         pub data: TypedList,
     }
 
