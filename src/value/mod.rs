@@ -1,142 +1,152 @@
+//! The structured types exist to give values that could be expressed with
+//! [`Dict`]s and [`List`]s a known structure and meaning that tools / scripts
+//! can rely on. The number of these types is kept low to improve reuseability.
+//! They are useful to force tools / scripts to decide on one specific structure
+//! and to increase compatibility. They also increase maintenance burden, which
+//! means that for niche applications it is preferred that tool + script agree
+//! on a structure and use dynamic types instead of extending the toolapi.
+
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-use crate::error::{LookupError, TypeExtractionError};
-
-mod misc;
-mod phantom;
-mod sequence;
-pub use misc::*;
-pub use phantom::*;
-pub use sequence::*;
+mod extract;
+mod utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
-    None(()),
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    String(String),
-    Signal(Signal),
-    Encoding(Encoding),
-    // TODO: reduce / unify
-    TissueProperties(TissueProperties),
-    MultiTissuePhantom(MultiTissuePhantom),
-    VoxelPhantom(VoxelPhantom),
-    VoxelGridPhantom(VoxelGridPhantom),
-    // TODO: rethink naming (especially of the structs inside of the seqs!)
-    EventSeq(EventSeq),
-    BlockSeq(BlockSeq),
+    // Atomic types - newtypes for consistency
+    None(atomic::None),
+    Bool(atomic::Bool),
+    Int(atomic::Int),
+    Float(atomic::Float),
+    Complex(atomic::Complex),
+    Vec3(atomic::Vec3),
+    Vec4(atomic::Vec4),
+    Str(atomic::Str),
+    // Structured types - (MRI) types with semantic meaning
+    InstantSeqEvent(structured::InstantSeqEvent),
+    Volume(structured::Volume),
+    SegmentedPhantom(structured::SegmentedPhantom),
+    PhantomTissue(structured::PhantomTissue),
+    // Dynamic collections - each value can have a different type
+    Dict(dynamic::Dict),
+    List(dynamic::List),
+    // Static collections - all values have the same type
+    TypedDict(typed::TypedDict),
+    TypedList(typed::TypedList),
 }
 
-// =============================================================
-// ValueDict: Collection of values used as Tool input and output
-// =============================================================
+pub mod atomic {
+    use num_complex::Complex64;
+    use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ValueDict(HashMap<String, Value>);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct None;
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Bool(pub bool);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Int(pub i64);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Float(pub f64);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Complex(pub Complex64);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Vec3(pub [f64; 3]);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Vec4(pub [f64; 4]);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Str(pub String);
+}
 
-impl<const N: usize> From<[(String, Value); N]> for ValueDict {
-    fn from(value: [(String, Value); N]) -> Self {
-        Self(HashMap::from(value))
+pub mod structured {
+    use super::atomic::*;
+    use super::typed::*;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub enum InstantSeqEvent {
+        Pulse { angle: Float, phase: Float },
+        Fid { kt: Vec4 },
+        Adc { phase: Float },
+    }
+
+    /// 3D voxel volume (with affine) of arbitrary (but singular) type
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Volume {
+        pub shape: [u64; 3],
+        pub affine: [[f64; 4]; 3],
+        pub data: TypedList,
+    }
+
+    /// This does not follow the NIfTI standard exactly because that allows to
+    /// maps for T1, T2 (so that it can describe classical voxel phantoms as well).
+    /// Here we want to specifically cater to segmented simulations, so we are
+    /// more restrictive. Therefore NIfTI -> [`SegmentedPhantom`] can be lossy.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct SegmentedPhantom {
+        pub tissues: Vec<PhantomTissue>,
+        pub b1_tx: Vec<Volume>,
+        pub b1_rx: Vec<Volume>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct PhantomTissue {
+        pub density: Volume,
+        pub db0: Volume,
+
+        pub t1: Float,
+        pub t2: Float,
+        pub t2dash: Float,
+        pub adc: Float,
     }
 }
 
-impl<const N: usize> From<[(&str, Value); N]> for ValueDict {
-    fn from(value: [(&str, Value); N]) -> Self {
-        Self(HashMap::from_iter(
-            value.into_iter().map(|(k, v)| (k.to_owned(), v.into())),
-        ))
+pub mod dynamic {
+    use super::Value;
+    use serde::{Deserialize, Serialize};
+    use std::collections::HashMap;
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Dict(pub HashMap<String, Value>);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct List(pub Vec<Value>);
+}
+
+/// Contains [`List`]s and [`Dict`]s where all values have the same type
+pub mod typed {
+    use super::atomic;
+    use super::structured;
+    use serde::{Deserialize, Serialize};
+    use std::collections::HashMap;
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub enum TypedList {
+        None(Vec<atomic::None>),
+        Bool(Vec<atomic::Bool>),
+        Int(Vec<atomic::Int>),
+        Float(Vec<atomic::Float>),
+        Complex(Vec<atomic::Complex>),
+        Vec3(Vec<atomic::Vec3>),
+        Vec4(Vec<atomic::Vec4>),
+        Str(Vec<atomic::Str>),
+        InstantSeqEvent(Vec<structured::InstantSeqEvent>),
+        Volume(Vec<structured::Volume>),
+        SegmentedPhantom(Vec<structured::SegmentedPhantom>),
+        PhantomTissue(Vec<structured::PhantomTissue>),
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub enum TypedDict {
+        None(HashMap<String, atomic::None>),
+        Bool(HashMap<String, atomic::Bool>),
+        Int(HashMap<String, atomic::Int>),
+        Float(HashMap<String, atomic::Float>),
+        Complex(HashMap<String, atomic::Complex>),
+        Vec3(HashMap<String, atomic::Vec3>),
+        Vec4(HashMap<String, atomic::Vec4>),
+        Str(HashMap<String, atomic::Str>),
+        InstantSeqEvent(HashMap<String, structured::InstantSeqEvent>),
+        Volume(HashMap<String, structured::Volume>),
+        SegmentedPhantom(HashMap<String, structured::SegmentedPhantom>),
+        PhantomTissue(HashMap<String, structured::PhantomTissue>),
     }
 }
-
-impl FromIterator<(String, Value)> for ValueDict {
-    fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
-        Self(HashMap::from_iter(iter))
-    }
-}
-
-impl IntoIterator for ValueDict {
-    type Item = (String, Value);
-    type IntoIter = std::collections::hash_map::IntoIter<String, Value>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl ValueDict {
-    pub fn pop<T>(&mut self, key: &str) -> Result<T, LookupError>
-    where
-        T: TryFrom<Value, Error = TypeExtractionError>,
-    {
-        match self.0.remove(key) {
-            Some(value) => Ok(value.try_into()?),
-            None => Err(LookupError::KeyError(key.to_owned())),
-        }
-    }
-}
-
-// =====================================================
-// CONVERSION: Dynamic typed Value <-> Static typed Rust
-// =====================================================
-
-impl Value {
-    fn type_name(&self) -> &'static str {
-        use std::any::type_name_of_val;
-
-        match self {
-            Value::None(x) => type_name_of_val(x),
-            Value::Bool(x) => type_name_of_val(x),
-            Value::Int(x) => type_name_of_val(x),
-            Value::Float(x) => type_name_of_val(x),
-            Value::String(x) => type_name_of_val(x),
-            Value::Signal(x) => type_name_of_val(x),
-            Value::Encoding(x) => type_name_of_val(x),
-            Value::TissueProperties(x) => type_name_of_val(x),
-            Value::MultiTissuePhantom(x) => type_name_of_val(x),
-            Value::VoxelPhantom(x) => type_name_of_val(x),
-            Value::VoxelGridPhantom(x) => type_name_of_val(x),
-            Value::EventSeq(x) => type_name_of_val(x),
-            Value::BlockSeq(x) => type_name_of_val(x),
-        }
-    }
-}
-
-macro_rules! impl_value {
-    ($rust_type:ty, $value_type:ident) => {
-        impl From<$rust_type> for Value {
-            fn from(value: $rust_type) -> Self {
-                Value::$value_type(value)
-            }
-        }
-
-        impl TryFrom<Value> for $rust_type {
-            type Error = TypeExtractionError;
-
-            fn try_from(value: Value) -> Result<Self, Self::Error> {
-                match value {
-                    Value::$value_type(value) => Ok(value),
-                    _ => Err(TypeExtractionError {
-                        from: value.type_name(),
-                        into: std::any::type_name::<$rust_type>(),
-                    }),
-                }
-            }
-        }
-    };
-}
-
-impl_value!((), None);
-impl_value!(bool, Bool);
-impl_value!(i64, Int);
-impl_value!(f64, Float);
-impl_value!(String, String);
-impl_value!(Signal, Signal);
-impl_value!(Encoding, Encoding);
-impl_value!(TissueProperties, TissueProperties);
-impl_value!(MultiTissuePhantom, MultiTissuePhantom);
-impl_value!(VoxelPhantom, VoxelPhantom);
-impl_value!(VoxelGridPhantom, VoxelGridPhantom);
-impl_value!(EventSeq, EventSeq);
-impl_value!(BlockSeq, BlockSeq);

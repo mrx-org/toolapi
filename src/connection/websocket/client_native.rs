@@ -1,7 +1,7 @@
 //! Sync / blocking implementation of the WebSocket communication.
 //! This is used by the client (usually some Python script).
 
-use crate::{ToolError, ValueDict, error::ConnectionError};
+use crate::{ToolError, Value, error::ConnectionError};
 use std::net::TcpStream;
 use tungstenite::{client::IntoClientRequest, protocol::WebSocketConfig, stream::MaybeTlsStream};
 
@@ -40,9 +40,9 @@ impl WsChannelClientNative {
         Ok(())
     }
 
-    pub fn send_values(&mut self, values: ValueDict) -> Result<(), ConnectionError> {
+    pub fn send_input(&mut self, input: Value) -> Result<(), ConnectionError> {
         self.socket
-            .send(super::common::Message::Values(values).try_into()?)
+            .send(super::common::Message::Input(input).try_into()?)
             .map_err(|err| ConnectionError::WebSocketError(err.to_string()))?;
         Ok(())
     }
@@ -64,7 +64,7 @@ impl WsChannelClientNative {
     pub fn read_message(&mut self) -> Result<Option<String>, ConnectionError> {
         self.read()?;
         match self.buffer.take() {
-            Some(super::common::Message::Message(x)) => Ok(Some(x)),
+            Some(super::common::Message::ToolMsg(x)) => Ok(Some(x)),
             Some(msg) => {
                 self.buffer = Some(msg);
                 Ok(None)
@@ -73,10 +73,10 @@ impl WsChannelClientNative {
         }
     }
 
-    pub fn read_result(&mut self) -> Result<Option<Result<ValueDict, ToolError>>, ConnectionError> {
+    pub fn read_output(&mut self) -> Result<Option<Result<Value, ToolError>>, ConnectionError> {
         self.read()?;
         match self.buffer.take() {
-            Some(super::common::Message::Result(x)) => Ok(Some(x)),
+            Some(super::common::Message::Output(x)) => Ok(Some(x)),
             Some(msg) => {
                 self.buffer = Some(msg);
                 Ok(None)

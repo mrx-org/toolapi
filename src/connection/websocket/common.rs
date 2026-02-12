@@ -1,14 +1,15 @@
 //! Common structures shared by client and server / sync and async impls.
 //! This is the heart of the communication - both sides have to agree on this!
 
-use crate::{ParseError, ToolError, ValueDict};
-use serde::{Deserialize, Serialize};
+#[cfg(any(feature = "server", feature = "client"))]
+use crate::{ParseError, ToolError, Value};
 
-#[derive(Serialize, Deserialize)]
+#[cfg(any(feature = "server", feature = "client"))]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum Message {
-    Values(ValueDict),
-    Result(Result<ValueDict, ToolError>),
-    Message(String),
+    Input(Value),
+    Output(Result<Value, ToolError>),
+    ToolMsg(String),
     Abort,
 }
 
@@ -66,6 +67,7 @@ impl From<WsMessageWasm> for WsMessageType {
     }
 }
 
+#[cfg(any(feature = "server", feature = "client"))]
 fn deserialize(raw: &[u8]) -> Result<Message, ParseError> {
     use ruzstd::io::Read;
     let mut decoder = ruzstd::decoding::StreamingDecoder::new(raw)
@@ -78,6 +80,7 @@ fn deserialize(raw: &[u8]) -> Result<Message, ParseError> {
     rmp_serde::from_slice(&decompressed).map_err(ParseError::DeserializationError)
 }
 
+#[cfg(any(feature = "server", feature = "client"))]
 fn serialize(msg: &Message) -> Result<Vec<u8>, ParseError> {
     let raw = rmp_serde::to_vec(msg).map_err(ParseError::SerializationError)?;
     Ok(ruzstd::encoding::compress_to_vec(

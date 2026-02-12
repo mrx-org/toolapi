@@ -2,7 +2,7 @@
 //! This mirrors the interface of `WsChannelSync` but uses async methods since
 //! blocking is not possible on wasm32-unknown-unknown.
 
-use crate::{ToolError, ValueDict, error::ConnectionError};
+use crate::{ToolError, Value, error::ConnectionError};
 use futures::{SinkExt, StreamExt};
 use ws_stream_wasm::{WsMeta, WsStream};
 
@@ -49,9 +49,9 @@ impl WsChannelClientWasm {
             .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
 
-    pub async fn send_values(&mut self, values: ValueDict) -> Result<(), ConnectionError> {
+    pub async fn send_input(&mut self, input: Value) -> Result<(), ConnectionError> {
         self.ws_stream
-            .send(Message::Values(values).try_into()?)
+            .send(Message::Input(input).try_into()?)
             .await
             .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
@@ -70,7 +70,7 @@ impl WsChannelClientWasm {
     pub async fn read_message(&mut self) -> Result<Option<String>, ConnectionError> {
         self.read().await?;
         match self.buffer.take() {
-            Some(Message::Message(x)) => Ok(Some(x)),
+            Some(Message::ToolMsg(x)) => Ok(Some(x)),
             Some(msg) => {
                 self.buffer = Some(msg);
                 Ok(None)
@@ -79,12 +79,12 @@ impl WsChannelClientWasm {
         }
     }
 
-    pub async fn read_result(
+    pub async fn read_output(
         &mut self,
-    ) -> Result<Option<Result<ValueDict, ToolError>>, ConnectionError> {
+    ) -> Result<Option<Result<Value, ToolError>>, ConnectionError> {
         self.read().await?;
         match self.buffer.take() {
-            Some(Message::Result(x)) => Ok(Some(x)),
+            Some(Message::Output(x)) => Ok(Some(x)),
             Some(msg) => {
                 self.buffer = Some(msg);
                 Ok(None)

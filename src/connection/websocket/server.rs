@@ -1,7 +1,7 @@
 //! Async implementation of the WebSocket communication.
 //! This is used by the server (which hosts the tool).
 
-use crate::{ConnectionError, ToolError, ValueDict};
+use crate::{ConnectionError, ToolError, Value};
 
 use super::common::Message;
 
@@ -22,17 +22,17 @@ impl WsChannelServer {
 
     pub async fn send_message(&mut self, msg: String) -> Result<(), ConnectionError> {
         self.socket
-            .send(Message::Message(msg).try_into()?)
+            .send(Message::ToolMsg(msg).try_into()?)
             .await
             .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
 
-    pub async fn send_result(
+    pub async fn send_output(
         &mut self,
-        result: Result<ValueDict, ToolError>,
+        result: Result<Value, ToolError>,
     ) -> Result<(), ConnectionError> {
         self.socket
-            .send(Message::Result(result).try_into()?)
+            .send(Message::Output(result).try_into()?)
             .await
             .map_err(|err| ConnectionError::WebSocketError(err.to_string()))
     }
@@ -62,10 +62,10 @@ impl WsChannelServer {
         }
     }
 
-    pub async fn read_values(&mut self) -> Result<Option<ValueDict>, ConnectionError> {
+    pub async fn read_input(&mut self) -> Result<Option<Value>, ConnectionError> {
         self.read().await?;
         match self.buffer.take() {
-            Some(Message::Values(x)) => Ok(Some(x)),
+            Some(Message::Input(x)) => Ok(Some(x)),
             Some(msg) => {
                 self.buffer = Some(msg);
                 Ok(None)
