@@ -2,6 +2,10 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.4.0**
+- Remodel `Value` type hierarchy, add homo- and heterogeneous collections to `Value` directly
+- Add `Value::index()` and conversion traits for working with new values
+- Rename client/server channel methods to match (`send_values` -> `send_input`, `read_result` -> `read_output`, etc.)
 - **toolapi 0.3.2**
 - `ruzstd` only implements compression mode `Fastest` - switch to avoid crash
 - **toolapi 0.3.1**
