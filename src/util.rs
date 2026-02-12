@@ -39,7 +39,7 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
     let mut ws_server = crate::connection::websocket::WsChannelServer::new(socket);
     // First, read the input from the socket
     let input = ws_server
-        .read_values()
+        .read_input()
         .await?
         .ok_or(ConnectionError::ConnectionClosed)?;
     // Channel for sending messages to the client and abort signal back
@@ -74,5 +74,5 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
     // Wait for tool completion and collect result - panics if tool panicked
     let result = result.await?;
     // Return the output to the client
-    ws_server.send_result(result).await
+    ws_server.send_output(result).await
 }

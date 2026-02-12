@@ -13,11 +13,11 @@ mod util;
 // Public API of toolapi
 // =====================================
 
-pub mod value_legacy;
 pub mod value;
 
 pub use error::*;
-pub use value_legacy::{Value, ValueDict};
+pub use value::Value;
+// pub use value_legacy::{Value, ValueDict};
 
 /// Function which prints a message, sends it to the client, and returns weather
 /// the client requested to abort the running tool.
@@ -39,16 +39,16 @@ pub type MessageFn = dyn FnMut(String) -> Result<(), AbortReason>;
 ///
 /// # Examples
 /// ```no_run
-/// # use toolapi::{ValueDict, MessageFn, ToolError};
+/// # use toolapi::{Value, MessageFn, ToolError};
 ///
 /// /// Tool which debug prints the input arguents and returns them to sender.
-/// fn tool(input: ValueDict, send_msg: &mut MessageFn) -> Result<ValueDict, ToolError> {
+/// fn tool(input: Value, send_msg: &mut MessageFn) -> Result<Value, ToolError> {
 ///     send_msg(format!("Args: {input:?}")).map_err(|_| ToolError::Abort)?;
 ///     Ok(input)
 /// }
 /// ```
 #[cfg(feature = "server")]
-pub type ToolFn = fn(ValueDict, &mut MessageFn) -> Result<ValueDict, ToolError>;
+pub type ToolFn = fn(Value, &mut MessageFn) -> Result<Value, ToolError>;
 
 /// Starts a server, running `tool` in parallel for every requesting client.
 ///
@@ -62,13 +62,13 @@ pub type ToolFn = fn(ValueDict, &mut MessageFn) -> Result<ValueDict, ToolError>;
 ///
 /// # Examples
 /// ```no_run
-/// # use toolapi::{run_server, ValueDict, MessageFn, ToolError};
+/// # use toolapi::{run_server, Value, MessageFn, ToolError};
 ///
 /// fn main() -> Result<(), std::io::Error> {
 ///     run_server(tool, Some(INDEX_HTML))
 /// }
 ///
-/// fn tool(input: ValueDict, send_msg: &mut MessageFn) -> Result<ValueDict, ToolError> {
+/// fn tool(input: Value, send_msg: &mut MessageFn) -> Result<Value, ToolError> {
 ///     send_msg(format!("Args: {input:?}")).map_err(|_| ToolError::Abort)?;
 ///     Ok(input)
 /// }
@@ -139,13 +139,13 @@ pub fn run_server(tool: ToolFn, index_html: Option<&'static str>) -> Result<(), 
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub fn call(
     addr: &str,
-    input: ValueDict,
+    input: Value,
     mut on_message: impl FnMut(String) -> bool,
-) -> Result<ValueDict, ToolCallError> {
+) -> Result<Value, ToolCallError> {
     // Create a connection between client and server over WebSocket
     let mut ws_client = connection::websocket::WsChannelClientNative::connect(addr)?;
     // Send the input parameters to the server
-    ws_client.send_values(input)?;
+    ws_client.send_input(input)?;
 
     // Loop over messages sent by the server and ask the callback if we should abort
     while let Some(msg) = ws_client.read_message()? {
@@ -159,7 +159,7 @@ pub fn call(
 
     // Read result, handle shutdown, return result
     let result = ws_client
-        .read_result()?
+        .read_output()?
         .ok_or(ToolCallError::ProtocolError)?;
     // TODO: add a variant `ToolCallError::CloseFailed` which contains the already received result
     ws_client.close()?;
@@ -195,13 +195,13 @@ pub fn call(
 #[cfg(all(feature = "client", target_arch = "wasm32"))]
 pub async fn call(
     addr: &str,
-    input: ValueDict,
+    input: Value,
     mut on_message: impl FnMut(String) -> bool,
-) -> Result<ValueDict, ToolCallError> {
+) -> Result<Value, ToolCallError> {
     // Create a connection between client and server over WebSocket
     let mut ws_client = connection::websocket::WsChannelClientWasm::connect(addr).await?;
     // Send the input parameters to the server
-    ws_client.send_values(input).await?;
+    ws_client.send_input(input).await?;
 
     // Loop over messages sent by the server and ask the callback if we should abort
     while let Some(msg) = ws_client.read_message().await? {
@@ -215,7 +215,7 @@ pub async fn call(
 
     // Read result, handle shutdown, return result
     let result = ws_client
-        .read_result()
+        .read_output()
         .await?
         .ok_or(ToolCallError::ProtocolError)?;
     // TODO: add a variant `ToolCallError::CloseFailed` which contains the already received result

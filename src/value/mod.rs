@@ -6,6 +6,9 @@
 //! means that for niche applications it is preferred that tool + script agree
 //! on a structure and use dynamic types instead of extending the toolapi.
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     // Atomic types - newtypes for consistency
     None(atomic::None),
@@ -31,21 +34,32 @@ pub enum Value {
 
 pub mod atomic {
     use num_complex::Complex64;
+    use serde::{Deserialize, Serialize};
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct None;
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Bool(pub bool);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Int(pub i64);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Float(pub f64);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Complex(pub Complex64);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Vec3(pub [f64; 3]);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Vec4(pub [f64; 4]);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Str(pub String);
 }
 
 pub mod structured {
     use super::atomic::*;
     use super::typed::*;
+    use serde::{Deserialize, Serialize};
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum InstantSeqEvent {
         Pulse { angle: Float, phase: Float },
         Fid { kt: Vec4 },
@@ -53,6 +67,7 @@ pub mod structured {
     }
 
     /// 3D voxel volume (with affine) of arbitrary (but singular) type
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Volume {
         pub shape: [u64; 3],
         pub affine: [[f64; 3]; 4],
@@ -63,12 +78,14 @@ pub mod structured {
     /// maps for T1, T2 (so that it can describe classical voxel phantoms as well).
     /// Here we want to specifically cater to segmented simulations, so we are
     /// more restrictive. Therefore NIfTI -> [`SegmentedPhantom`] can be lossy.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct SegmentedPhantom {
         pub tissues: Vec<PhantomTissue>,
         pub b1_tx: Vec<Volume>,
         pub b1_rx: Vec<Volume>,
     }
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct PhantomTissue {
         pub density: Volume,
         pub db0: Volume,
@@ -82,9 +99,12 @@ pub mod structured {
 
 pub mod dynamic {
     use super::Value;
+    use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Dict(pub HashMap<String, Value>);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct List(pub Vec<Value>);
 }
 
@@ -92,8 +112,10 @@ pub mod dynamic {
 pub mod typed {
     use super::atomic;
     use super::structured;
+    use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum TypedList {
         None(Vec<atomic::None>),
         Bool(Vec<atomic::Bool>),
@@ -109,6 +131,7 @@ pub mod typed {
         PhantomTissue(Vec<structured::PhantomTissue>),
     }
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum TypedDict {
         None(HashMap<String, atomic::None>),
         Bool(HashMap<String, atomic::Bool>),
