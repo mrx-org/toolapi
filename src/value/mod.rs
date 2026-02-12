@@ -7,9 +7,6 @@
 //! on a structure and use dynamic types instead of extending the toolapi.
 
 pub enum Value {
-    // Dynamic types - contain more values
-    Dict(dynamic::Dict),
-    List(dynamic::List),
     // Atomic types - newtypes for consistency
     None(atomic::None),
     Bool(atomic::Bool),
@@ -19,21 +16,17 @@ pub enum Value {
     Vec3(atomic::Vec3),
     Vec4(atomic::Vec4),
     Str(atomic::Str),
-    // Structured types - fixed lists / dicts with meaning
+    // Structured types - (MRI) types with semantic meaning
     InstantSeqEvent(structured::InstantSeqEvent),
-    // Tensor types - arrays with singular type
-    Tensor1D(tensor::Tensor<1>),
-    Tensor2D(tensor::Tensor<2>),
-    Tensor3D(tensor::Tensor<3>),
-    Tensor4D(tensor::Tensor<4>),
-}
-
-pub mod dynamic {
-    use super::Value;
-    use std::collections::HashMap;
-
-    pub struct Dict(pub HashMap<String, Value>);
-    pub struct List(pub Vec<Value>);
+    Volume(structured::Volume),
+    SegmentedPhantom(structured::SegmentedPhantom),
+    PhantomTissue(structured::PhantomTissue),
+    // Dynamic collections - each value can have a different type
+    Dict(dynamic::Dict),
+    List(dynamic::List),
+    // Static collections - all values have the same type
+    TypedDict(typed::TypedDict),
+    TypedList(typed::TypedList),
 }
 
 pub mod atomic {
@@ -49,12 +42,59 @@ pub mod atomic {
     pub struct Str(pub String);
 }
 
-pub mod tensor {
-    use super::atomic;
+pub mod structured {
+    use super::atomic::*;
+    use super::typed::*;
 
-    /// All atomic and structured types from [`Value`], but as [`Vec`]s.
-    /// Improves over a [`List`] of a single type by pulling the type out.
-    pub enum ValueVec {
+    pub enum InstantSeqEvent {
+        Pulse { angle: Float, phase: Float },
+        Fid { kt: Vec4 },
+        Adc { phase: Float },
+    }
+
+    /// 3D voxel volume (with affine) of arbitrary (but singular) type
+    pub struct Volume {
+        pub shape: [u64; 3],
+        pub affine: [[f64; 3]; 4],
+        pub data: TypedList,
+    }
+
+    /// This does not follow the NIfTI standard exactly because that allows to
+    /// maps for T1, T2 (so that it can describe classical voxel phantoms as well).
+    /// Here we want to specifically cater to segmented simulations, so we are
+    /// more restrictive. Therefore NIfTI -> [`SegmentedPhantom`] can be lossy.
+    pub struct SegmentedPhantom {
+        pub tissues: Vec<PhantomTissue>,
+        pub b1_tx: Vec<Volume>,
+        pub b1_rx: Vec<Volume>,
+    }
+
+    pub struct PhantomTissue {
+        pub density: Volume,
+        pub db0: Volume,
+
+        pub t1: Float,
+        pub t2: Float,
+        pub t2dash: Float,
+        pub adc: Float,
+    }
+}
+
+pub mod dynamic {
+    use super::Value;
+    use std::collections::HashMap;
+
+    pub struct Dict(pub HashMap<String, Value>);
+    pub struct List(pub Vec<Value>);
+}
+
+/// Contains [`List`]s and [`Dict`]s where all values have the same type
+pub mod typed {
+    use super::atomic;
+    use super::structured;
+    use std::collections::HashMap;
+
+    pub enum TypedList {
         None(Vec<atomic::None>),
         Bool(Vec<atomic::Bool>),
         Int(Vec<atomic::Int>),
@@ -63,44 +103,24 @@ pub mod tensor {
         Vec3(Vec<atomic::Vec3>),
         Vec4(Vec<atomic::Vec4>),
         Str(Vec<atomic::Str>),
+        InstantSeqEvent(Vec<structured::InstantSeqEvent>),
+        Volume(Vec<structured::Volume>),
+        SegmentedPhantom(Vec<structured::SegmentedPhantom>),
+        PhantomTissue(Vec<structured::PhantomTissue>),
     }
 
-    pub struct Tensor<const NDIM: usize> {
-        pub size: [u64; NDIM],
-        pub data: ValueVec,
+    pub enum TypedDict {
+        None(HashMap<String, atomic::None>),
+        Bool(HashMap<String, atomic::Bool>),
+        Int(HashMap<String, atomic::Int>),
+        Float(HashMap<String, atomic::Float>),
+        Complex(HashMap<String, atomic::Complex>),
+        Vec3(HashMap<String, atomic::Vec3>),
+        Vec4(HashMap<String, atomic::Vec4>),
+        Str(HashMap<String, atomic::Str>),
+        InstantSeqEvent(HashMap<String, structured::InstantSeqEvent>),
+        Volume(HashMap<String, structured::Volume>),
+        SegmentedPhantom(HashMap<String, structured::SegmentedPhantom>),
+        PhantomTissue(HashMap<String, structured::PhantomTissue>),
     }
-
-    // TODO: introduce a static tensor of fixed type as a helper: We don't want
-    // to implement a new type for every tensor type for the API (which is used
-    // by python, WASM etc...) but we could do a Rust helper that has static
-    // typing and can extract the dynamic `Tensor` variant (fail on wrong type)
-    // 
-    /// This cannot be found in the `Value` struct and is for Rust usage only
-    pub struct StaticTensor<T, const NDIM: usize> {
-        pub size: [u64; NDIM],
-        pub data: Vec<T>,
-    }
-
-    // TODO: implement - we need extraction impl for ValueVec and Value to convert
-    // them into the contained data if types match
-    impl<const NDIM: usize, T> TryFrom<Tensor<NDIM>> for StaticTensor<T, NDIM> {
-        type Error;
-    
-        fn try_from(value: Tensor<NDIM>) -> Result<Self, Self::Error> {
-            todo!()
-        }
-    }
-}
-
-pub mod structured {
-    use super::atomic::*;
-
-    pub enum InstantSeqEvent {
-        Pulse { angle: Float, phase: Float },
-        Fid { kt: Vec4 },
-        Adc { phase: Float },
-    }
-
-    // TODO: implement MultiTissuePhantom - maybe it is sufficient to implement the Tissue
-    // and use a dynamic Dict for multi-tissue?
 }
