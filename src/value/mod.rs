@@ -6,6 +6,7 @@
 //! means that for niche applications it is preferred that tool + script agree
 //! on a structure and use dynamic types instead of extending the toolapi.
 
+use num_complex::Complex64;
 use serde::{Deserialize, Serialize};
 
 mod extract;
@@ -13,15 +14,15 @@ mod utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
-    // Atomic types - newtypes for consistency
-    None(atomic::None),
-    Bool(atomic::Bool),
-    Int(atomic::Int),
-    Float(atomic::Float),
-    Complex(atomic::Complex),
+    // Atomic types - think of py and wasm compatibility (e.g. single int type)
+    None(()),
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    Str(String),
+    Complex(Complex64),
     Vec3(atomic::Vec3),
     Vec4(atomic::Vec4),
-    Str(atomic::Str),
     // Structured types - (MRI) types with semantic meaning
     InstantSeqEvent(structured::InstantSeqEvent),
     Volume(structured::Volume),
@@ -36,25 +37,12 @@ pub enum Value {
 }
 
 pub mod atomic {
-    use num_complex::Complex64;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct None;
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Bool(pub bool);
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Int(pub i64);
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Float(pub f64);
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Complex(pub Complex64);
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Vec3(pub [f64; 3]);
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Vec4(pub [f64; 4]);
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Str(pub String);
 }
 
 pub mod structured {
@@ -64,9 +52,9 @@ pub mod structured {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum InstantSeqEvent {
-        Pulse { angle: Float, phase: Float },
+        Pulse { angle: f64, phase: f64 },
         Fid { kt: Vec4 },
-        Adc { phase: Float },
+        Adc { phase: f64 },
     }
 
     /// 3D voxel volume (with affine) of arbitrary (but singular) type
@@ -93,10 +81,10 @@ pub mod structured {
         pub density: Volume,
         pub db0: Volume,
 
-        pub t1: Float,
-        pub t2: Float,
-        pub t2dash: Float,
-        pub adc: Float,
+        pub t1: f64,
+        pub t2: f64,
+        pub t2dash: f64,
+        pub adc: f64,
     }
 }
 
@@ -115,19 +103,20 @@ pub mod dynamic {
 pub mod typed {
     use super::atomic;
     use super::structured;
+    use num_complex::Complex64;
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum TypedList {
-        None(Vec<atomic::None>),
-        Bool(Vec<atomic::Bool>),
-        Int(Vec<atomic::Int>),
-        Float(Vec<atomic::Float>),
-        Complex(Vec<atomic::Complex>),
+        None(Vec<()>),
+        Bool(Vec<bool>),
+        Int(Vec<i64>),
+        Float(Vec<f64>),
+        Str(Vec<String>),
+        Complex(Vec<Complex64>),
         Vec3(Vec<atomic::Vec3>),
         Vec4(Vec<atomic::Vec4>),
-        Str(Vec<atomic::Str>),
         InstantSeqEvent(Vec<structured::InstantSeqEvent>),
         Volume(Vec<structured::Volume>),
         SegmentedPhantom(Vec<structured::SegmentedPhantom>),
@@ -136,14 +125,14 @@ pub mod typed {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum TypedDict {
-        None(HashMap<String, atomic::None>),
-        Bool(HashMap<String, atomic::Bool>),
-        Int(HashMap<String, atomic::Int>),
-        Float(HashMap<String, atomic::Float>),
-        Complex(HashMap<String, atomic::Complex>),
+        None(HashMap<String, ()>),
+        Bool(HashMap<String, bool>),
+        Int(HashMap<String, i64>),
+        Float(HashMap<String, f64>),
+        Str(HashMap<String, String>),
+        Complex(HashMap<String, Complex64>),
         Vec3(HashMap<String, atomic::Vec3>),
         Vec4(HashMap<String, atomic::Vec4>),
-        Str(HashMap<String, atomic::Str>),
         InstantSeqEvent(HashMap<String, structured::InstantSeqEvent>),
         Volume(HashMap<String, structured::Volume>),
         SegmentedPhantom(HashMap<String, structured::SegmentedPhantom>),

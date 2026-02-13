@@ -25,10 +25,10 @@ impl Value {
                     TypedList::Bool(items) => items.get(index).cloned().map(Value::Bool),
                     TypedList::Int(items) => items.get(index).cloned().map(Value::Int),
                     TypedList::Float(items) => items.get(index).cloned().map(Value::Float),
+                    TypedList::Str(items) => items.get(index).cloned().map(Value::Str),
                     TypedList::Complex(items) => items.get(index).cloned().map(Value::Complex),
                     TypedList::Vec3(items) => items.get(index).cloned().map(Value::Vec3),
                     TypedList::Vec4(items) => items.get(index).cloned().map(Value::Vec4),
-                    TypedList::Str(items) => items.get(index).cloned().map(Value::Str),
                     TypedList::InstantSeqEvent(items) => {
                         items.get(index).cloned().map(Value::InstantSeqEvent)
                     }
@@ -49,10 +49,10 @@ impl Value {
                     TypedDict::Bool(items) => items.get(&k).cloned().map(Value::Bool),
                     TypedDict::Int(items) => items.get(&k).cloned().map(Value::Int),
                     TypedDict::Float(items) => items.get(&k).cloned().map(Value::Float),
+                    TypedDict::Str(items) => items.get(&k).cloned().map(Value::Str),
                     TypedDict::Complex(items) => items.get(&k).cloned().map(Value::Complex),
                     TypedDict::Vec3(items) => items.get(&k).cloned().map(Value::Vec3),
                     TypedDict::Vec4(items) => items.get(&k).cloned().map(Value::Vec4),
-                    TypedDict::Str(items) => items.get(&k).cloned().map(Value::Str),
                     TypedDict::InstantSeqEvent(items) => {
                         items.get(&k).cloned().map(Value::InstantSeqEvent)
                     }
@@ -96,12 +96,12 @@ impl From<String> for Index {
 }
 
 // TODO: use macro for this
-impl From<crate::value::atomic::Int> for Value {
-    fn from(value: crate::value::atomic::Int) -> Self {
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
         Self::Int(value)
     }
 }
-impl TryFrom<Value> for crate::value::atomic::Int {
+impl TryFrom<Value> for i64 {
     type Error = TypeExtractionError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
@@ -109,26 +109,13 @@ impl TryFrom<Value> for crate::value::atomic::Int {
             Value::Int(value) => Ok(value),
             _ => Err(TypeExtractionError {
                 from: type_name_of_val(&value),
-                into: type_name::<crate::value::atomic::Int>(),
-            }),
-        }
-    }
-}
-impl TryFrom<Option<Value>> for crate::value::atomic::Int {
-    type Error = TypeExtractionError;
-
-    fn try_from(value: Option<Value>) -> Result<Self, Self::Error> {
-        match value {
-            Some(Value::Int(value)) => Ok(value),
-            _ => Err(TypeExtractionError {
-                from: type_name_of_val(&value),
-                into: type_name::<crate::value::atomic::Int>(),
+                into: type_name::<i64>(),
             }),
         }
     }
 }
 
-impl TryFrom<TypedList> for Vec<crate::value::atomic::Float> {
+impl TryFrom<TypedList> for Vec<f64> {
     type Error = TypeExtractionError;
 
     fn try_from(value: TypedList) -> Result<Self, Self::Error> {
@@ -136,7 +123,7 @@ impl TryFrom<TypedList> for Vec<crate::value::atomic::Float> {
             TypedList::Float(value) => Ok(value),
             _ => Err(TypeExtractionError {
                 from: type_name_of_val(&value),
-                into: type_name::<Vec<crate::value::atomic::Float>>(),
+                into: type_name::<Vec<f64>>(),
             }),
         }
     }
