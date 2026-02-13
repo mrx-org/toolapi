@@ -3,9 +3,12 @@
 
 // TODO: proper error handling (instead of options)
 
+use std::collections::HashMap;
 use std::any::{type_name, type_name_of_val};
 
-use crate::{TypeExtractionError, value::typed::TypedList};
+use num_complex::Complex64;
+
+use crate::{TypeExtractionError, value::typed::{TypedDict, TypedList}};
 
 use super::Value;
 
@@ -96,41 +99,68 @@ impl From<String> for Index {
 }
 
 // TODO: use macro for this
-impl From<i64> for Value {
-    fn from(value: i64) -> Self {
-        Self::Int(value)
-    }
-}
-impl TryFrom<Value> for i64 {
-    type Error = TypeExtractionError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::Int(value) => Ok(value),
-            _ => Err(TypeExtractionError {
-                from: type_name_of_val(&value),
-                into: type_name::<i64>(),
-            }),
+macro_rules! impl_conversion {
+    ($typ:ty, $variant:ident) => {
+        impl From<$typ> for Value {
+            fn from(value: $typ) -> Self {
+                Self::$variant(value)
+            }
         }
-    }
-}
+        impl TryFrom<Value> for $typ {
+            type Error = TypeExtractionError;
 
-impl TryFrom<TypedList> for Vec<f64> {
-    type Error = TypeExtractionError;
-
-    fn try_from(value: TypedList) -> Result<Self, Self::Error> {
-        match value {
-            TypedList::Float(value) => Ok(value),
-            _ => Err(TypeExtractionError {
-                from: type_name_of_val(&value),
-                into: type_name::<Vec<f64>>(),
-            }),
+            fn try_from(value: Value) -> Result<Self, Self::Error> {
+                match value {
+                    Value::$variant(value) => Ok(value),
+                    _ => Err(TypeExtractionError {
+                        from: type_name_of_val(&value),
+                        into: type_name::<$typ>(),
+                    }),
+                }
+            }
         }
-    }
+        impl TryFrom<TypedList> for Vec<$typ> {
+            type Error = TypeExtractionError;
+
+            fn try_from(value: TypedList) -> Result<Self, Self::Error> {
+                match value {
+                    TypedList::$variant(value) => Ok(value),
+                    _ => Err(TypeExtractionError {
+                        from: type_name_of_val(&value),
+                        into: type_name::<Vec<$typ>>(),
+                    }),
+                }
+            }
+        }
+        impl TryFrom<TypedDict> for HashMap<String, $typ> {
+            type Error = TypeExtractionError;
+
+            fn try_from(value: TypedDict) -> Result<Self, Self::Error> {
+                match value {
+                    TypedDict::$variant(value) => Ok(value),
+                    _ => Err(TypeExtractionError {
+                        from: type_name_of_val(&value),
+                        into: type_name::<Vec<$typ>>(),
+                    }),
+                }
+            }
+        }
+    };
 }
 
-impl From<crate::value::structured::SegmentedPhantom> for Value {
-    fn from(value: crate::value::structured::SegmentedPhantom) -> Self {
-        Self::SegmentedPhantom(value)
-    }
-}
+use super::{atomic, structured};
+impl_conversion!((), None);
+impl_conversion!(bool, Bool);
+impl_conversion!(i64, Int);
+impl_conversion!(f64, Float);
+impl_conversion!(String, Str);
+impl_conversion!(Complex64, Complex);
+impl_conversion!(atomic::Vec3, Vec3);
+impl_conversion!(atomic::Vec4, Vec4);
+impl_conversion!(structured::InstantSeqEvent, InstantSeqEvent);
+impl_conversion!(structured::Volume, Volume);
+impl_conversion!(structured::SegmentedPhantom, SegmentedPhantom);
+impl_conversion!(structured::PhantomTissue, PhantomTissue);
+
+// TODO: we are missing conversions for (Typed)List/Dict. The above already
+// implements some of them, wait for an example to show exact traits missing!
