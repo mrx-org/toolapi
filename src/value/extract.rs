@@ -48,7 +48,7 @@ impl Value {
             // Trying to index into a non-list/dict value
             (_, Some(_), _) => None,
 
-            // get(0) returned None and get (1..) returned Some: impossible
+            // ptr.get(0) = None && ptr.get(1..) = Some: impossible
             (_, None, Some(_)) => unreachable!(),
         }
     }

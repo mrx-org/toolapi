@@ -107,6 +107,10 @@ pub mod typed {
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 
+    // These types do not contain Lists / Dicts. They are meant for
+    // efficiently packing values of a single type and do not support
+    // nested indexing (see extract.rs). All other Value types are supported.
+
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum TypedList {
         None(Vec<()>),
