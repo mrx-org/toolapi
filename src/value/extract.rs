@@ -1,104 +1,152 @@
 //! This module implements the .get() function, which enables to extract static
 //! types from dynamically typed Values.
 
-// TODO: proper error handling (instead of options)
-
-use std::collections::HashMap;
 use std::any::{type_name, type_name_of_val};
+use std::collections::HashMap;
 
 use num_complex::Complex64;
 
-use crate::{TypeExtractionError, value::typed::{TypedDict, TypedList}};
+use crate::{
+    TypeExtractionError,
+    value::typed::{TypedDict, TypedList},
+};
 
 use super::Value;
 
-impl Value {
-    /// TODO: implement recursive indexing
-    pub fn index(&self, index: impl Into<Index>) -> Option<Value> {
-        let index = index.into();
+// TODO: proper error handling (instead of options)
+// Different `None` paths in match are different error conditions
+// Plus the index not found in array/dict error case.
 
-        // typed list and dict elements will be converted into dynamic values.
-        // for efficient use, extract the whole list / dict with typing instead
-        use crate::value::typed::{TypedDict, TypedList};
-        match index {
-            Index::Array(index) => match self {
-                Value::List(list) => list.0.get(index).cloned(),
-                Value::TypedList(list) => match list {
-                    TypedList::None(items) => items.get(index).cloned().map(Value::None),
-                    TypedList::Bool(items) => items.get(index).cloned().map(Value::Bool),
-                    TypedList::Int(items) => items.get(index).cloned().map(Value::Int),
-                    TypedList::Float(items) => items.get(index).cloned().map(Value::Float),
-                    TypedList::Str(items) => items.get(index).cloned().map(Value::Str),
-                    TypedList::Complex(items) => items.get(index).cloned().map(Value::Complex),
-                    TypedList::Vec3(items) => items.get(index).cloned().map(Value::Vec3),
-                    TypedList::Vec4(items) => items.get(index).cloned().map(Value::Vec4),
-                    TypedList::InstantSeqEvent(items) => {
-                        items.get(index).cloned().map(Value::InstantSeqEvent)
-                    }
-                    TypedList::Volume(items) => items.get(index).cloned().map(Value::Volume),
-                    TypedList::SegmentedPhantom(items) => {
-                        items.get(index).cloned().map(Value::SegmentedPhantom)
-                    }
-                    TypedList::PhantomTissue(items) => {
-                        items.get(index).cloned().map(Value::PhantomTissue)
-                    }
-                },
-                _ => None,
-            },
-            Index::Dict(k) => match self {
-                Value::Dict(dict) => dict.0.get(&k).cloned(),
-                Value::TypedDict(dict) => match dict {
-                    TypedDict::None(items) => items.get(&k).cloned().map(Value::None),
-                    TypedDict::Bool(items) => items.get(&k).cloned().map(Value::Bool),
-                    TypedDict::Int(items) => items.get(&k).cloned().map(Value::Int),
-                    TypedDict::Float(items) => items.get(&k).cloned().map(Value::Float),
-                    TypedDict::Str(items) => items.get(&k).cloned().map(Value::Str),
-                    TypedDict::Complex(items) => items.get(&k).cloned().map(Value::Complex),
-                    TypedDict::Vec3(items) => items.get(&k).cloned().map(Value::Vec3),
-                    TypedDict::Vec4(items) => items.get(&k).cloned().map(Value::Vec4),
-                    TypedDict::InstantSeqEvent(items) => {
-                        items.get(&k).cloned().map(Value::InstantSeqEvent)
-                    }
-                    TypedDict::Volume(items) => items.get(&k).cloned().map(Value::Volume),
-                    TypedDict::SegmentedPhantom(items) => {
-                        items.get(&k).cloned().map(Value::SegmentedPhantom)
-                    }
-                    TypedDict::PhantomTissue(items) => {
-                        items.get(&k).cloned().map(Value::PhantomTissue)
-                    }
-                },
-                _ => None,
-            },
+impl Value {
+    pub fn get(&self, ptr: impl Into<Pointer>) -> Option<Value> {
+        self._get(&ptr.into().0)
+    }
+
+    fn _get(&self, ptr: &[Index]) -> Option<Value> {
+        let index = ptr.get(0);
+        let rest = ptr.get(1..);
+
+        match (self, index, rest) {
+            // no indexing: return Value even if it could have contained more nesting
+            (value, None, None) => Some(value.clone()),
+
+            // simple indexing into List / Dict - call recurively into them
+            (Value::List(list), Some(Index::Idx(idx)), rest) => get_list(list, idx, rest),
+            (Value::Dict(dict), Some(Index::Key(key)), rest) => get_dict(dict, key, rest),
+            // typed List / Dict: contain atomic types, must be end of path
+            (Value::TypedList(list), Some(Index::Idx(idx)), None) => get_typed_list(list, idx),
+            (Value::TypedDict(dict), Some(Index::Key(key)), None) => get_typed_dict(dict, key),
+            (Value::TypedList(_), Some(Index::Idx(_)), Some(_)) => None,
+            (Value::TypedDict(_), Some(Index::Key(_)), Some(_)) => None,
+
+            // Wrong type of index for List / Dict
+            (Value::List(_), Some(Index::Key(_)), _) => None,
+            (Value::Dict(_), Some(Index::Idx(_)), _) => None,
+            (Value::TypedList(_), Some(Index::Key(_)), _) => None,
+            (Value::TypedDict(_), Some(Index::Idx(_)), _) => None,
+
+            // Trying to index into a non-list/dict value
+            (_, Some(_), _) => None,
+
+            // get(0) returned None and get (1..) returned Some: impossible
+            (_, None, Some(_)) => unreachable!(),
         }
     }
 }
 
-// TODO: allow nested paths like "tissues.0.t2".
-// This would need a reworked index enum and a fancy From<String> impl
-pub enum Index {
-    Array(usize),
-    Dict(String),
+fn get_list(list: &super::dynamic::List, index: &usize, rest: Option<&[Index]>) -> Option<Value> {
+    list.0
+        .get(*index)
+        .and_then(|value| value._get(rest.unwrap_or_default()))
 }
 
-impl From<usize> for Index {
+fn get_dict(dict: &super::dynamic::Dict, key: &str, rest: Option<&[Index]>) -> Option<Value> {
+    dict.0
+        .get(key)
+        .and_then(|value| value._get(rest.unwrap_or_default()))
+}
+
+fn get_typed_list(list: &TypedList, idx: &usize) -> Option<Value> {
+    match list {
+        TypedList::None(items) => items.get(*idx).cloned().map(Value::None),
+        TypedList::Bool(items) => items.get(*idx).cloned().map(Value::Bool),
+        TypedList::Int(items) => items.get(*idx).cloned().map(Value::Int),
+        TypedList::Float(items) => items.get(*idx).cloned().map(Value::Float),
+        TypedList::Str(items) => items.get(*idx).cloned().map(Value::Str),
+        TypedList::Complex(items) => items.get(*idx).cloned().map(Value::Complex),
+        TypedList::Vec3(items) => items.get(*idx).cloned().map(Value::Vec3),
+        TypedList::Vec4(items) => items.get(*idx).cloned().map(Value::Vec4),
+        TypedList::InstantSeqEvent(items) => items.get(*idx).cloned().map(Value::InstantSeqEvent),
+        TypedList::Volume(items) => items.get(*idx).cloned().map(Value::Volume),
+        TypedList::SegmentedPhantom(items) => items.get(*idx).cloned().map(Value::SegmentedPhantom),
+        TypedList::PhantomTissue(items) => items.get(*idx).cloned().map(Value::PhantomTissue),
+    }
+}
+
+fn get_typed_dict(dict: &TypedDict, key: &str) -> Option<Value> {
+    match dict {
+        TypedDict::None(items) => items.get(key).cloned().map(Value::None),
+        TypedDict::Bool(items) => items.get(key).cloned().map(Value::Bool),
+        TypedDict::Int(items) => items.get(key).cloned().map(Value::Int),
+        TypedDict::Float(items) => items.get(key).cloned().map(Value::Float),
+        TypedDict::Str(items) => items.get(key).cloned().map(Value::Str),
+        TypedDict::Complex(items) => items.get(key).cloned().map(Value::Complex),
+        TypedDict::Vec3(items) => items.get(key).cloned().map(Value::Vec3),
+        TypedDict::Vec4(items) => items.get(key).cloned().map(Value::Vec4),
+        TypedDict::InstantSeqEvent(items) => items.get(key).cloned().map(Value::InstantSeqEvent),
+        TypedDict::Volume(items) => items.get(key).cloned().map(Value::Volume),
+        TypedDict::SegmentedPhantom(items) => items.get(key).cloned().map(Value::SegmentedPhantom),
+        TypedDict::PhantomTissue(items) => items.get(key).cloned().map(Value::PhantomTissue),
+    }
+}
+
+/// Use with [`Value::index`] to extract from a nested [`Dict`] / [`List`].
+///
+/// A [`Pointer`] is a '/' separated path, containing
+/// - strings to index into a [`Dict`]
+/// - numbers to index into a [`List`]
+/// Note that [`Dict`] keys can be numbers, empty strings, ... as well.
+///
+/// # Examples
+/// ```ignore
+/// "tissues/3/density" // Extract from a nested path
+/// "2/some_property" // Top level is an array
+/// "" // returns whole `Value` unchanged
+/// "empty//key" // Empty key in `Dict` at second level
+/// ```
+pub struct Pointer(Vec<Index>);
+
+enum Index {
+    Key(String),
+    Idx(usize),
+}
+
+impl From<usize> for Pointer {
     fn from(value: usize) -> Self {
-        Self::Array(value)
+        Self(vec![Index::Idx(value)])
     }
 }
 
-impl From<&str> for Index {
+impl From<&str> for Pointer {
     fn from(value: &str) -> Self {
-        Self::Dict(value.to_owned())
+        Self(
+            value
+                .split('/')
+                .map(|element| match element.parse::<usize>() {
+                    Ok(index) => Index::Idx(index),
+                    Err(_) => Index::Key(element.to_string()),
+                })
+                .collect(),
+        )
     }
 }
 
-impl From<String> for Index {
+impl From<String> for Pointer {
     fn from(value: String) -> Self {
-        Self::Dict(value)
+        Self::from(value.as_str())
     }
 }
 
-// TODO: use macro for this
 macro_rules! impl_conversion {
     ($typ:ty, $variant:ident) => {
         impl From<$typ> for Value {
