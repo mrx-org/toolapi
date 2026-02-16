@@ -201,7 +201,7 @@ macro_rules! impl_conversion {
                     TypedDict::$variant(value) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
                         from: type_name_of_val(&value),
-                        into: type_name::<Vec<$typ>>(),
+                        into: type_name::<HashMap<String, $typ>>(),
                     }),
                 }
             }
