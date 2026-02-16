@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use num_complex::Complex64;
 
 use crate::{
-    TypeExtractionError,
+    ExtractionError,
     value::typed::{TypedDict, TypedList},
 };
 
@@ -18,17 +18,18 @@ use super::Value;
 // Plus the index not found in array/dict error case.
 
 impl Value {
-    pub fn get(&self, ptr: impl Into<Pointer>) -> Option<Value> {
+    pub fn get(&self, ptr: impl Into<Pointer>) -> Result<Value, ExtractionError> {
         self._get(&ptr.into().0)
     }
 
-    fn _get(&self, ptr: &[Index]) -> Option<Value> {
+    fn _get(&self, ptr: &[Index]) -> Result<Value, ExtractionError> {
         let index = ptr.get(0);
         let rest = ptr.get(1..);
 
+        use ExtractionError::*;
         match (self, index, rest) {
             // no indexing: return Value even if it could have contained more nesting
-            (value, None, None) => Some(value.clone()),
+            (value, None, None) => Ok(value.clone()),
 
             // simple indexing into List / Dict - call recurively into them
             (Value::List(list), Some(Index::Idx(idx)), rest) => get_list(list, idx, rest),
@@ -36,17 +37,17 @@ impl Value {
             // typed List / Dict: contain atomic types, must be end of path
             (Value::TypedList(list), Some(Index::Idx(idx)), None) => get_typed_list(list, idx),
             (Value::TypedDict(dict), Some(Index::Key(key)), None) => get_typed_dict(dict, key),
-            (Value::TypedList(_), Some(Index::Idx(_)), Some(_)) => None,
-            (Value::TypedDict(_), Some(Index::Key(_)), Some(_)) => None,
+            (Value::TypedList(_), Some(Index::Idx(_)), Some(_)) => Err(TooMuchNesting),
+            (Value::TypedDict(_), Some(Index::Key(_)), Some(_)) => Err(TooMuchNesting),
 
             // Wrong type of index for List / Dict
-            (Value::List(_), Some(Index::Key(_)), _) => None,
-            (Value::Dict(_), Some(Index::Idx(_)), _) => None,
-            (Value::TypedList(_), Some(Index::Key(_)), _) => None,
-            (Value::TypedDict(_), Some(Index::Idx(_)), _) => None,
+            (Value::List(_), Some(Index::Key(_)), _) => Err(KeyForList),
+            (Value::Dict(_), Some(Index::Idx(_)), _) => Err(IndexForDict),
+            (Value::TypedList(_), Some(Index::Key(_)), _) => Err(KeyForList),
+            (Value::TypedDict(_), Some(Index::Idx(_)), _) => Err(IndexForDict),
 
             // Trying to index into a non-list/dict value
-            (_, Some(_), _) => None,
+            (_, Some(_), _) => Err(TooMuchNesting),
 
             // ptr.get(0) = None && ptr.get(1..) = Some: impossible
             (_, None, Some(_)) => unreachable!(),
@@ -54,19 +55,29 @@ impl Value {
     }
 }
 
-fn get_list(list: &super::dynamic::List, index: &usize, rest: Option<&[Index]>) -> Option<Value> {
+fn get_list(
+    list: &super::dynamic::List,
+    index: &usize,
+    rest: Option<&[Index]>,
+) -> Result<Value, ExtractionError> {
     list.0
         .get(*index)
+        .ok_or(ExtractionError::IndexOutOfBounds)
         .and_then(|value| value._get(rest.unwrap_or_default()))
 }
 
-fn get_dict(dict: &super::dynamic::Dict, key: &str, rest: Option<&[Index]>) -> Option<Value> {
+fn get_dict(
+    dict: &super::dynamic::Dict,
+    key: &str,
+    rest: Option<&[Index]>,
+) -> Result<Value, ExtractionError> {
     dict.0
         .get(key)
+        .ok_or(ExtractionError::KeyNotFound)
         .and_then(|value| value._get(rest.unwrap_or_default()))
 }
 
-fn get_typed_list(list: &TypedList, idx: &usize) -> Option<Value> {
+fn get_typed_list(list: &TypedList, idx: &usize) -> Result<Value, ExtractionError> {
     match list {
         TypedList::None(items) => items.get(*idx).cloned().map(Value::None),
         TypedList::Bool(items) => items.get(*idx).cloned().map(Value::Bool),
@@ -81,9 +92,10 @@ fn get_typed_list(list: &TypedList, idx: &usize) -> Option<Value> {
         TypedList::SegmentedPhantom(items) => items.get(*idx).cloned().map(Value::SegmentedPhantom),
         TypedList::PhantomTissue(items) => items.get(*idx).cloned().map(Value::PhantomTissue),
     }
+    .ok_or(ExtractionError::IndexOutOfBounds)
 }
 
-fn get_typed_dict(dict: &TypedDict, key: &str) -> Option<Value> {
+fn get_typed_dict(dict: &TypedDict, key: &str) -> Result<Value, ExtractionError> {
     match dict {
         TypedDict::None(items) => items.get(key).cloned().map(Value::None),
         TypedDict::Bool(items) => items.get(key).cloned().map(Value::Bool),
@@ -98,6 +110,7 @@ fn get_typed_dict(dict: &TypedDict, key: &str) -> Option<Value> {
         TypedDict::SegmentedPhantom(items) => items.get(key).cloned().map(Value::SegmentedPhantom),
         TypedDict::PhantomTissue(items) => items.get(key).cloned().map(Value::PhantomTissue),
     }
+    .ok_or(ExtractionError::KeyNotFound)
 }
 
 /// Use with [`Value::index`] to extract from a nested [`Dict`] / [`List`].
@@ -155,12 +168,12 @@ macro_rules! impl_conversion {
             }
         }
         impl TryFrom<Value> for $typ {
-            type Error = TypeExtractionError;
+            type Error = ExtractionError;
 
             fn try_from(value: Value) -> Result<Self, Self::Error> {
                 match value {
                     Value::$variant(value) => Ok(value),
-                    _ => Err(TypeExtractionError {
+                    _ => Err(ExtractionError::TypeMismatch {
                         from: type_name_of_val(&value),
                         into: type_name::<$typ>(),
                     }),
@@ -168,12 +181,12 @@ macro_rules! impl_conversion {
             }
         }
         impl TryFrom<TypedList> for Vec<$typ> {
-            type Error = TypeExtractionError;
+            type Error = ExtractionError;
 
             fn try_from(value: TypedList) -> Result<Self, Self::Error> {
                 match value {
                     TypedList::$variant(value) => Ok(value),
-                    _ => Err(TypeExtractionError {
+                    _ => Err(ExtractionError::TypeMismatch {
                         from: type_name_of_val(&value),
                         into: type_name::<Vec<$typ>>(),
                     }),
@@ -181,12 +194,12 @@ macro_rules! impl_conversion {
             }
         }
         impl TryFrom<TypedDict> for HashMap<String, $typ> {
-            type Error = TypeExtractionError;
+            type Error = ExtractionError;
 
             fn try_from(value: TypedDict) -> Result<Self, Self::Error> {
                 match value {
                     TypedDict::$variant(value) => Ok(value),
-                    _ => Err(TypeExtractionError {
+                    _ => Err(ExtractionError::TypeMismatch {
                         from: type_name_of_val(&value),
                         into: type_name::<Vec<$typ>>(),
                     }),

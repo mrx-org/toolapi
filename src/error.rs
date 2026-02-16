@@ -17,10 +17,22 @@ pub enum AbortReason {
 
 /// Exclusively used by the Values struct when looking up a value
 #[derive(Error, Debug)]
-#[error("dynamic type contained a `{from}`, tried to extract a `{into}`")]
-pub struct TypeExtractionError {
-    pub from: &'static str,
-    pub into: &'static str,
+pub enum ExtractionError {
+    #[error("dynamic type contained a `{from}`, tried to extract a `{into}`")]
+    TypeMismatch {
+        from: &'static str,
+        into: &'static str,
+    },
+    #[error("tried to index further into atomic type")]
+    TooMuchNesting,
+    #[error("index out of bounds")]
+    IndexOutOfBounds,
+    #[error("key not found")]
+    KeyNotFound,
+    #[error("tried to index a Dict with an integer")]
+    IndexForDict,
+    #[error("tried to index a List with a string")]
+    KeyForList,
 }
 
 /// Exclusively used by the Values struct when looking up a value
@@ -29,7 +41,7 @@ pub enum LookupError {
     #[error("key {0} does not exist")]
     KeyError(String),
     #[error("wrong type: {0}")]
-    ConversionError(#[from] TypeExtractionError),
+    ConversionError(#[from] ExtractionError),
 }
 
 /// Created during Message (de)serialization, part of ConnectionError
