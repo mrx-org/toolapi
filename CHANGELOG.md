@@ -2,6 +2,11 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.4.1**
+- `Int`, `Float`, and other atomic types are no longer newtype-wrapped
+- All supported types can now by extracted into concrete Rust types
+- Values can now by indexed by a "pointer" (e.g.: `"phantom/tissues/3/density"`)
+- Indexing now returns a proper result instead of an Option
 - **toolapi 0.4.0**
 - Remodel `Value` type hierarchy, add homo- and heterogeneous collections to `Value` directly
 - Add `Value::index()` and conversion traits for working with new values
