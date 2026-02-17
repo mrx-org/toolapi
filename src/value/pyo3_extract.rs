@@ -19,11 +19,11 @@ use pyo3::{
 };
 
 use super::{
+    Value,
     atomic::{Vec3, Vec4},
     dynamic::{Dict, List},
     structured::{InstantSeqEvent, PhantomTissue, SegmentedPhantom, Volume},
     typed::TypedList,
-    Value,
 };
 
 // =============================================================================

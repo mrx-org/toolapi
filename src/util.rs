@@ -26,7 +26,7 @@ pub async fn socket_handler(ws: WebSocketUpgrade, State(state): State<ToolState>
         .on_upgrade(async move |socket| {
             if let Err(err) = tool_handler(socket, state.tool).await {
                 // TODO: we should send the error to the tool as well!
-                eprintln!("{err}");
+                eprintln!("{err:?}");
             }
         })
 }

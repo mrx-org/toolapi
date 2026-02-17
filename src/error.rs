@@ -8,7 +8,6 @@ use crate::{Value, connection::websocket::WsMessageType};
 pub enum AbortReason {
     #[error("requested by client")]
     RequestedByClient,
-    #[cfg(feature = "server")]
     #[error("tokio channel error: {0}")]
     ChannelError(String),
     #[error("connection closed")]
@@ -19,16 +18,13 @@ pub enum AbortReason {
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum ExtractionError {
     #[error("dynamic type contained a `{from}`, tried to extract a `{into}`")]
-    TypeMismatch {
-        from: String,
-        into: String,
-    },
+    TypeMismatch { from: String, into: String },
     #[error("tried to index further into atomic type")]
     TooMuchNesting,
-    #[error("index out of bounds")]
-    IndexOutOfBounds,
-    #[error("key not found")]
-    KeyNotFound,
+    #[error("index {index} out of bounds (length {length})")]
+    IndexOutOfBounds { index: usize, length: usize },
+    #[error("key `{key}` not found")]
+    KeyNotFound { key: String },
     #[error("tried to index a Dict with an integer")]
     IndexForDict,
     #[error("tried to index a List with a string")]
@@ -75,10 +71,7 @@ pub enum ToolCallError {
     #[error("connection error: {0}")]
     ConnectionError(#[from] ConnectionError),
     #[error("tool finished but didn't shut down properly: {err}")]
-    CloseFailed {
-        result: Value,
-        err: ConnectionError,
-    },
+    CloseFailed { result: Value, err: ConnectionError },
     #[error("tool didn't send a result")]
     ProtocolError,
     #[error("client requested abort in on_message")]
@@ -88,10 +81,10 @@ pub enum ToolCallError {
 }
 
 /// Returned by the tool in the final result() call as reason if no value was computed.
-/// It is seriazable since it is the only error that ist actually sent over the WebSocket connection.
+/// It is serializable since it is the only error that is actually sent over the WebSocket connection.
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum ToolError {
-    #[error("probably failed to extract a tool input: {0}")]
+    #[error("failed to extract (probably a tool input): {0}")]
     Extraction(#[from] ExtractionError),
     #[error("tool was requested to abort: {0}")]
     Abort(#[from] AbortReason),

@@ -132,6 +132,25 @@ pub mod typed {
         PhantomTissue(Vec<structured::PhantomTissue>),
     }
 
+    impl TypedList {
+        pub fn len(&self) -> usize {
+            match self {
+                Self::None(v) => v.len(),
+                Self::Bool(v) => v.len(),
+                Self::Int(v) => v.len(),
+                Self::Float(v) => v.len(),
+                Self::Str(v) => v.len(),
+                Self::Complex(v) => v.len(),
+                Self::Vec3(v) => v.len(),
+                Self::Vec4(v) => v.len(),
+                Self::InstantSeqEvent(v) => v.len(),
+                Self::Volume(v) => v.len(),
+                Self::SegmentedPhantom(v) => v.len(),
+                Self::PhantomTissue(v) => v.len(),
+            }
+        }
+    }
+
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum TypedDict {
         None(HashMap<String, ()>),

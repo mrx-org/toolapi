@@ -58,7 +58,10 @@ fn get_list(
 ) -> Result<Value, ExtractionError> {
     list.0
         .get(*index)
-        .ok_or(ExtractionError::IndexOutOfBounds)
+        .ok_or(ExtractionError::IndexOutOfBounds {
+            index: *index,
+            length: list.0.len(),
+        })
         .and_then(|value| value._get(rest.unwrap_or_default()))
 }
 
@@ -69,7 +72,9 @@ fn get_dict(
 ) -> Result<Value, ExtractionError> {
     dict.0
         .get(key)
-        .ok_or(ExtractionError::KeyNotFound)
+        .ok_or_else(|| ExtractionError::KeyNotFound {
+            key: key.to_string(),
+        })
         .and_then(|value| value._get(rest.unwrap_or_default()))
 }
 
@@ -88,7 +93,10 @@ fn get_typed_list(list: &TypedList, idx: &usize) -> Result<Value, ExtractionErro
         TypedList::SegmentedPhantom(items) => items.get(*idx).cloned().map(Value::SegmentedPhantom),
         TypedList::PhantomTissue(items) => items.get(*idx).cloned().map(Value::PhantomTissue),
     }
-    .ok_or(ExtractionError::IndexOutOfBounds)
+    .ok_or(ExtractionError::IndexOutOfBounds {
+        index: *idx,
+        length: list.len(),
+    })
 }
 
 fn get_typed_dict(dict: &TypedDict, key: &str) -> Result<Value, ExtractionError> {
@@ -106,7 +114,9 @@ fn get_typed_dict(dict: &TypedDict, key: &str) -> Result<Value, ExtractionError>
         TypedDict::SegmentedPhantom(items) => items.get(key).cloned().map(Value::SegmentedPhantom),
         TypedDict::PhantomTissue(items) => items.get(key).cloned().map(Value::PhantomTissue),
     }
-    .ok_or(ExtractionError::KeyNotFound)
+    .ok_or_else(|| ExtractionError::KeyNotFound {
+        key: key.to_string(),
+    })
 }
 
 /// Use with [`Value::index`] to extract from a nested [`Dict`] / [`List`].

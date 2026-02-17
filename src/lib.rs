@@ -43,7 +43,7 @@ pub type MessageFn = dyn FnMut(String) -> Result<(), AbortReason>;
 ///
 /// /// Tool which debug prints the input arguents and returns them to sender.
 /// fn tool(input: Value, send_msg: &mut MessageFn) -> Result<Value, ToolError> {
-///     send_msg(format!("Args: {input:?}")).map_err(|_| ToolError::Abort)?;
+///     send_msg(format!("Args: {input:?}"))?;
 ///     Ok(input)
 /// }
 /// ```
@@ -69,7 +69,7 @@ pub type ToolFn = fn(Value, &mut MessageFn) -> Result<Value, ToolError>;
 /// }
 ///
 /// fn tool(input: Value, send_msg: &mut MessageFn) -> Result<Value, ToolError> {
-///     send_msg(format!("Args: {input:?}")).map_err(|_| ToolError::Abort)?;
+///     send_msg(format!("Args: {input:?}"))?;
 ///     Ok(input)
 /// }
 ///
@@ -162,7 +162,7 @@ pub fn call(
         .read_output()?
         .ok_or(ToolCallError::ProtocolError)?
         .map_err(ToolCallError::ToolReturnedError)?;
-    
+
     // We successfully computed a result - return it even on error!
     match ws_client.close() {
         Ok(()) => Ok(result),
