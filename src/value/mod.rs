@@ -10,6 +10,8 @@ use num_complex::Complex64;
 use serde::{Deserialize, Serialize};
 
 mod extract;
+#[cfg(feature = "pyo3")]
+mod pyo3_extract;
 mod utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

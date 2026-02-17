@@ -2,6 +2,8 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.4.2**
+- Add optional `pyo3` feature with `FromPyObject` implementations for all Value types
 - **toolapi 0.4.1**
 - `Int`, `Float`, and other atomic types are no longer newtype-wrapped
 - All supported types can now by extracted into concrete Rust types

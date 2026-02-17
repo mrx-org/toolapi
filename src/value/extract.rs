@@ -13,17 +13,13 @@ use crate::{
 
 use super::Value;
 
-// TODO: proper error handling (instead of options)
-// Different `None` paths in match are different error conditions
-// Plus the index not found in array/dict error case.
-
 impl Value {
     pub fn get(&self, ptr: impl Into<Pointer>) -> Result<Value, ExtractionError> {
         self._get(&ptr.into().0)
     }
 
     fn _get(&self, ptr: &[Index]) -> Result<Value, ExtractionError> {
-        let index = ptr.get(0);
+        let index = ptr.first();
         let rest = ptr.get(1..);
 
         use ExtractionError::*;
@@ -118,6 +114,7 @@ fn get_typed_dict(dict: &TypedDict, key: &str) -> Result<Value, ExtractionError>
 /// A [`Pointer`] is a '/' separated path, containing
 /// - strings to index into a [`Dict`]
 /// - numbers to index into a [`List`]
+/// 
 /// Note that [`Dict`] keys can be numbers, empty strings, ... as well.
 ///
 /// # Examples
