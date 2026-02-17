@@ -2,6 +2,8 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.4.3**
+- `pyo3` feature now also provides `IntoPyObject` implementations
 - **toolapi 0.4.2**
 - Add optional `pyo3` feature with `FromPyObject` implementations for all Value types
 - **toolapi 0.4.1**

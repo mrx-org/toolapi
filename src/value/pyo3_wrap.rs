@@ -3,6 +3,13 @@
 //! Gated behind the `pyo3` feature. This allows Python bindings (e.g.
 //! `toolapi-py`) to convert Rust Value types into Python objects using
 //! PyO3's standard `.into_pyobject()` mechanism.
+//!
+//! NOTE: this module has tight coupling with `toolapi-py` because it expects
+//! a python module (see `py.import("toolapi.value")` below) that defines the
+//! exact types with the structure expected here. The orphan rule means we can
+//! only implement that trait here. In my opinion, this coupling is okay if we
+//! view `toolapi-py` as a minimal repo that mainly serves as defining the
+//! package that is published to PyPI while the logic is all here in `toolapi`.
 
 use pyo3::{
     IntoPyObjectExt,
