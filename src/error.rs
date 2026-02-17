@@ -16,12 +16,12 @@ pub enum AbortReason {
 }
 
 /// Returned when extracting a value fails (wrong type, key not found etc)
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize, Deserialize)]
 pub enum ExtractionError {
     #[error("dynamic type contained a `{from}`, tried to extract a `{into}`")]
     TypeMismatch {
-        from: &'static str,
-        into: &'static str,
+        from: String,
+        into: String,
     },
     #[error("tried to index further into atomic type")]
     TooMuchNesting,
@@ -67,6 +67,8 @@ pub enum ConnectionError {
     ToolPanic(#[from] tokio::task::JoinError),
 }
 
+// TODO: Value is very big and thus this Error type too
+#[allow(clippy::large_enum_variant)]
 /// Returned by the call() function running on the client
 #[derive(Error, Debug)]
 pub enum ToolCallError {
@@ -89,6 +91,8 @@ pub enum ToolCallError {
 /// It is seriazable since it is the only error that ist actually sent over the WebSocket connection.
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum ToolError {
+    #[error("probably failed to extract a tool input: {0}")]
+    Extraction(#[from] ExtractionError),
     #[error("tool was requested to abort: {0}")]
     Abort(#[from] AbortReason),
     #[error("custom tool error: {0}")]
