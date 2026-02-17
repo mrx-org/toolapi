@@ -114,7 +114,7 @@ fn get_typed_dict(dict: &TypedDict, key: &str) -> Result<Value, ExtractionError>
 /// A [`Pointer`] is a '/' separated path, containing
 /// - strings to index into a [`Dict`]
 /// - numbers to index into a [`List`]
-/// 
+///
 /// Note that [`Dict`] keys can be numbers, empty strings, ... as well.
 ///
 /// # Examples
@@ -159,11 +159,28 @@ impl From<String> for Pointer {
 
 macro_rules! impl_conversion {
     ($typ:ty, $variant:ident) => {
+        // ============================
+        // Rust -> Value
+        // ============================
         impl From<$typ> for Value {
             fn from(value: $typ) -> Self {
                 Self::$variant(value)
             }
         }
+        impl From<Vec<$typ>> for Value {
+            fn from(value: Vec<$typ>) -> Self {
+                Self::TypedList(TypedList::$variant(value))
+            }
+        }
+        impl From<HashMap<String, $typ>> for Value {
+            fn from(value: HashMap<String, $typ>) -> Self {
+                Self::TypedDict(TypedDict::$variant(value))
+            }
+        }
+
+        // ============================
+        // Value -> Rust
+        // ============================
         impl TryFrom<Value> for $typ {
             type Error = ExtractionError;
 
@@ -171,12 +188,16 @@ macro_rules! impl_conversion {
                 match value {
                     Value::$variant(value) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value),
-                        into: type_name::<$typ>(),
+                        from: type_name_of_val(&value).to_string(),
+                        into: type_name::<$typ>().to_string(),
                     }),
                 }
             }
         }
+
+        // ============================
+        // TypedList -> Vec
+        // ============================
         impl TryFrom<TypedList> for Vec<$typ> {
             type Error = ExtractionError;
 
@@ -184,12 +205,29 @@ macro_rules! impl_conversion {
                 match value {
                     TypedList::$variant(value) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value),
-                        into: type_name::<Vec<$typ>>(),
+                        from: type_name_of_val(&value).to_string(),
+                        into: type_name::<Vec<$typ>>().to_string(),
                     }),
                 }
             }
         }
+        impl TryFrom<Value> for Vec<$typ> {
+            type Error = ExtractionError;
+
+            fn try_from(value: Value) -> Result<Self, Self::Error> {
+                match value {
+                    Value::TypedList(TypedList::$variant(value)) => Ok(value),
+                    _ => Err(ExtractionError::TypeMismatch {
+                        from: type_name_of_val(&value).to_string(),
+                        into: type_name::<Vec<$typ>>().to_string(),
+                    }),
+                }
+            }
+        }
+
+        // ============================
+        // TypedDict -> HashMap
+        // ============================
         impl TryFrom<TypedDict> for HashMap<String, $typ> {
             type Error = ExtractionError;
 
@@ -197,8 +235,21 @@ macro_rules! impl_conversion {
                 match value {
                     TypedDict::$variant(value) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value),
-                        into: type_name::<HashMap<String, $typ>>(),
+                        from: type_name_of_val(&value).to_string(),
+                        into: type_name::<HashMap<String, $typ>>().to_string(),
+                    }),
+                }
+            }
+        }
+        impl TryFrom<Value> for HashMap<String, $typ> {
+            type Error = ExtractionError;
+
+            fn try_from(value: Value) -> Result<Self, Self::Error> {
+                match value {
+                    Value::TypedDict(TypedDict::$variant(value)) => Ok(value),
+                    _ => Err(ExtractionError::TypeMismatch {
+                        from: type_name_of_val(&value).to_string(),
+                        into: type_name::<HashMap<String, $typ>>().to_string(),
                     }),
                 }
             }
@@ -219,6 +270,3 @@ impl_conversion!(structured::InstantSeqEvent, InstantSeqEvent);
 impl_conversion!(structured::Volume, Volume);
 impl_conversion!(structured::SegmentedPhantom, SegmentedPhantom);
 impl_conversion!(structured::PhantomTissue, PhantomTissue);
-
-// TODO: we are missing conversions for (Typed)List/Dict. The above already
-// implements some of them, wait for an example to show exact traits missing!
