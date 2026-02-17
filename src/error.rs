@@ -1,21 +1,21 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::connection::websocket::WsMessageType;
+use crate::{Value, connection::websocket::WsMessageType};
 
 /// Sent over the server <-> tool channel to communicate an abort
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize, Deserialize)]
 pub enum AbortReason {
     #[error("requested by client")]
     RequestedByClient,
     #[cfg(feature = "server")]
-    #[error("channel error: {0}")]
-    ChannelError(#[from] tokio::sync::mpsc::error::SendError<String>),
+    #[error("tokio channel error: {0}")]
+    ChannelError(String),
     #[error("connection closed")]
     ConnectionClosed,
 }
 
-/// Exclusively used by the Values struct when looking up a value
+/// Returned when extracting a value fails (wrong type, key not found etc)
 #[derive(Error, Debug)]
 pub enum ExtractionError {
     #[error("dynamic type contained a `{from}`, tried to extract a `{into}`")]
@@ -33,15 +33,6 @@ pub enum ExtractionError {
     IndexForDict,
     #[error("tried to index a List with a string")]
     KeyForList,
-}
-
-/// Exclusively used by the Values struct when looking up a value
-#[derive(Error, Debug)]
-pub enum LookupError {
-    #[error("key {0} does not exist")]
-    KeyError(String),
-    #[error("wrong type: {0}")]
-    ConversionError(#[from] ExtractionError),
 }
 
 /// Created during Message (de)serialization, part of ConnectionError
@@ -81,12 +72,13 @@ pub enum ConnectionError {
 pub enum ToolCallError {
     #[error("connection error: {0}")]
     ConnectionError(#[from] ConnectionError),
-    /// Either the tool is not sending a result or there is a bug and we were
-    /// not reading all messages before the result (we are still receiving messages)
+    #[error("tool finished but didn't shut down properly: {err}")]
+    CloseFailed {
+        result: Value,
+        err: ConnectionError,
+    },
     #[error("tool didn't send a result")]
     ProtocolError,
-    #[error("tool returned an error message: {0}")]
-    ToolError(String),
     #[error("client requested abort in on_message")]
     OnMessageAbort,
     #[error("tool returned an error: {0}")]
@@ -97,10 +89,8 @@ pub enum ToolCallError {
 /// It is seriazable since it is the only error that ist actually sent over the WebSocket connection.
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum ToolError {
-    /// This does not contain the abort reason because not all of them are seriazable.
-    /// The server logs should have the abort with the reason logged.
-    #[error("tool was requested to abort")]
-    Abort,
+    #[error("tool was requested to abort: {0}")]
+    Abort(#[from] AbortReason),
     #[error("custom tool error: {0}")]
     Custom(String),
 }

@@ -26,7 +26,9 @@ impl Sender {
     /// # Blocking
     /// This function blocks on sending the message and should not be used in an `async` context.
     pub fn send(&mut self, msg: String) -> Result<(), AbortReason> {
-        self.msg_tx.blocking_send(msg)?;
+        self.msg_tx
+            .blocking_send(msg)
+            .map_err(|err| AbortReason::ChannelError(err.to_string()))?;
 
         use tokio::sync::oneshot::error::TryRecvError;
         match self.abort_rx.try_recv() {

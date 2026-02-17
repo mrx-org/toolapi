@@ -160,10 +160,14 @@ pub fn call(
     // Read result, handle shutdown, return result
     let result = ws_client
         .read_output()?
-        .ok_or(ToolCallError::ProtocolError)?;
-    // TODO: add a variant `ToolCallError::CloseFailed` which contains the already received result
-    ws_client.close()?;
-    result.map_err(ToolCallError::ToolReturnedError)
+        .ok_or(ToolCallError::ProtocolError)?
+        .map_err(ToolCallError::ToolReturnedError)?;
+    
+    // We successfully computed a result - return it even on error!
+    match ws_client.close() {
+        Ok(()) => Ok(result),
+        Err(err) => Err(ToolCallError::CloseFailed { result, err }),
+    }
 }
 
 /// Execute a tool hosted at url `addr` with inputs `input`.
@@ -217,8 +221,12 @@ pub async fn call(
     let result = ws_client
         .read_output()
         .await?
-        .ok_or(ToolCallError::ProtocolError)?;
-    // TODO: add a variant `ToolCallError::CloseFailed` which contains the already received result
-    ws_client.close().await?;
-    result.map_err(ToolCallError::ToolReturnedError)
+        .ok_or(ToolCallError::ProtocolError)?
+        .map_err(ToolCallError::ToolReturnedError)?;
+
+    // We successfully computed a result - return it even on error!
+    match ws_client.close().await {
+        Ok(()) => Ok(result),
+        Err(err) => Err(ToolCallError::CloseFailed { result, err }),
+    }
 }
