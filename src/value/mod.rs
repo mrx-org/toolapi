@@ -10,9 +10,12 @@ use num_complex::Complex64;
 use serde::{Deserialize, Serialize};
 
 mod extract;
+mod utils;
+
 #[cfg(feature = "pyo3")]
 mod pyo3_extract;
-mod utils;
+#[cfg(feature = "pyo3")]
+mod pyo3_wrap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {

@@ -4,6 +4,11 @@
 //! `toolapi-py`) to convert Python objects into Rust Value types using
 //! PyO3's standard `.extract()` mechanism.
 
+// TODO: Some of the manual FromPyObject impls could instead be #[derive(FromPyObject)]:
+// - PhantomTissue and SegmentedPhantom should just work
+// - Dict and List would work with #[pyo3(transparent)]
+// - Volume would work but looses custom error messages
+
 use std::collections::HashMap;
 
 use num_complex::Complex64;
