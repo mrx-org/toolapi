@@ -2,6 +2,10 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.4.5**
+- `SegmentedPhantom::tissues` is now a HashMap, storing tissue names
+- **toolapi 0.4.4**
+- Extensive error types overhaul, improving messages, DX and more
 - **toolapi 0.4.3**
 - `pyo3` feature now also provides `IntoPyObject` implementations
 - **toolapi 0.4.2**
@@ -9,7 +13,7 @@ Newest changes are first, releases to [crates.io](https://crates.io/crates/toola
 - **toolapi 0.4.1**
 - `Int`, `Float`, and other atomic types are no longer newtype-wrapped
 - All supported types can now by extracted into concrete Rust types
-- Values can now by indexed by a "pointer" (e.g.: `"phantom/tissues/3/density"`)
+- Values can now by indexed by a "pointer" (e.g.: `"matrix/1/2/real"`)
 - Indexing now returns a proper result instead of an Option
 - **toolapi 0.4.0**
 - Remodel `Value` type hierarchy, add homo- and heterogeneous collections to `Value` directly

@@ -51,6 +51,8 @@ pub mod atomic {
 }
 
 pub mod structured {
+    use std::collections::HashMap;
+
     use super::atomic::*;
     use super::typed::*;
     use serde::{Deserialize, Serialize};
@@ -76,7 +78,7 @@ pub mod structured {
     /// more restrictive. Therefore NIfTI -> [`SegmentedPhantom`] can be lossy.
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct SegmentedPhantom {
-        pub tissues: Vec<PhantomTissue>,
+        pub tissues: HashMap<String, PhantomTissue>,
         pub b1_tx: Vec<Volume>,
         pub b1_rx: Vec<Volume>,
     }

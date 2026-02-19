@@ -212,9 +212,10 @@ impl<'py> IntoPyObject<'py> for SegmentedPhantom {
 
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
         let cls = value_class(py, "SegmentedPhantom")?;
-        let tissues = PyList::empty(py);
-        for t in self.tissues {
-            tissues.append(t.into_pyobject(py)?)?;
+        let tissues = PyDict::new(py);
+        for (key, value) in self.tissues {
+            let obj = value.into_pyobject(py)?;
+            tissues.set_item(key, obj)?;
         }
         let b1_tx = PyList::empty(py);
         for v in self.b1_tx {
