@@ -43,6 +43,54 @@ impl Debug for List {
     }
 }
 
+impl Debug for Dict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt_typed_map(&self.0, "", f)
+    }
+}
+
+impl Debug for TypedList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None(x) => fmt_typed_list(x, "", f),
+            Self::Bool(x) => fmt_typed_list(x, "", f),
+            Self::Int(x) => fmt_typed_list(x, "i64", f),
+            Self::Float(x) => fmt_typed_list(x, "f64", f),
+            Self::Str(x) => fmt_typed_list(x, "", f),
+            Self::Bytes(x) => fmt_typed_list(x, "bytes", f),
+            Self::Complex(x) => fmt_typed_list(x, "complex", f),
+            Self::Vec3(x) => fmt_typed_list(x, "v3", f),
+            Self::Vec4(x) => fmt_typed_list(x, "v4", f),
+            Self::InstantSeqEvent(x) => fmt_typed_list(x, "", f),
+            Self::Volume(x) => fmt_typed_list(x, "", f),
+            Self::SegmentedPhantom(x) => fmt_typed_list(x, "", f),
+            Self::PhantomTissue(x) => fmt_typed_list(x, "", f),
+        }
+    }
+}
+
+impl Debug for TypedDict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None(x) => fmt_typed_map(x, "", f),
+            Self::Bool(x) => fmt_typed_map(x, "", f),
+            Self::Int(x) => fmt_typed_map(x, "i64", f),
+            Self::Float(x) => fmt_typed_map(x, "f64", f),
+            Self::Str(x) => fmt_typed_map(x, "", f),
+            Self::Bytes(x) => fmt_typed_map(x, "bytes", f),
+            Self::Complex(x) => fmt_typed_map(x, "complex", f),
+            Self::Vec3(x) => fmt_typed_map(x, "v3", f),
+            Self::Vec4(x) => fmt_typed_map(x, "v4", f),
+            Self::InstantSeqEvent(x) => fmt_typed_map(x, "", f),
+            Self::Volume(x) => fmt_typed_map(x, "", f),
+            Self::SegmentedPhantom(x) => fmt_typed_map(x, "", f),
+            Self::PhantomTissue(x) => fmt_typed_map(x, "", f),
+        }
+    }
+}
+
+// Helpers
+
 struct Ellipsis(usize);
 
 impl Debug for Ellipsis {
@@ -51,49 +99,47 @@ impl Debug for Ellipsis {
     }
 }
 
-impl Debug for Dict {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // its evident from the "{ ... }" that this is a dict
-        self.0.fmt(f)
+fn fmt_typed_list<T: Debug>(
+    items: &[T],
+    suffix: &str,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    let len = items.len();
+    if len <= 10 {
+        f.debug_list().entries(items).finish()?;
+    } else {
+        let mut list = f.debug_list();
+        list.entries(&items[..8]);
+        list.entry(&Ellipsis(len - 10));
+        list.entries(&items[len - 2..]);
+        list.finish()?;
     }
+    f.write_str(suffix)
 }
 
-impl Debug for TypedList {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::None(x) => f.debug_tuple("None").field(x).finish(),
-            Self::Bool(x) => f.debug_tuple("Bool").field(x).finish(),
-            Self::Int(x) => f.debug_tuple("Int").field(x).finish(),
-            Self::Float(x) => f.debug_tuple("Float").field(x).finish(),
-            Self::Str(x) => f.debug_tuple("Str").field(x).finish(),
-            Self::Bytes(x) => f.debug_tuple("Bytes").field(x).finish(),
-            Self::Complex(x) => f.debug_tuple("Complex").field(x).finish(),
-            Self::Vec3(x) => f.debug_tuple("Vec3").field(x).finish(),
-            Self::Vec4(x) => f.debug_tuple("Vec4").field(x).finish(),
-            Self::InstantSeqEvent(x) => f.debug_tuple("InstantSeqEvent").field(x).finish(),
-            Self::Volume(x) => f.debug_tuple("Volume").field(x).finish(),
-            Self::SegmentedPhantom(x) => f.debug_tuple("SegmentedPhantom").field(x).finish(),
-            Self::PhantomTissue(x) => f.debug_tuple("PhantomTissue").field(x).finish(),
+fn fmt_typed_map<T: Debug>(
+    items: &std::collections::HashMap<String, T>,
+    suffix: &str,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    let len = items.len();
+    if len <= 10 {
+        f.debug_map().entries(items).finish()?;
+    } else {
+        let mut entries = items.iter();
+        let mut map = f.debug_map();
+        for (k, v) in (&mut entries).take(8) {
+            map.entry(k, v);
         }
-    }
-}
-
-impl Debug for TypedDict {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::None(x) => f.debug_tuple("None").field(x).finish(),
-            Self::Bool(x) => f.debug_tuple("Bool").field(x).finish(),
-            Self::Int(x) => f.debug_tuple("Int").field(x).finish(),
-            Self::Float(x) => f.debug_tuple("Float").field(x).finish(),
-            Self::Str(x) => f.debug_tuple("Str").field(x).finish(),
-            Self::Bytes(x) => f.debug_tuple("Bytes").field(x).finish(),
-            Self::Complex(x) => f.debug_tuple("Complex").field(x).finish(),
-            Self::Vec3(x) => f.debug_tuple("Vec3").field(x).finish(),
-            Self::Vec4(x) => f.debug_tuple("Vec4").field(x).finish(),
-            Self::InstantSeqEvent(x) => f.debug_tuple("InstantSeqEvent").field(x).finish(),
-            Self::Volume(x) => f.debug_tuple("Volume").field(x).finish(),
-            Self::SegmentedPhantom(x) => f.debug_tuple("SegmentedPhantom").field(x).finish(),
-            Self::PhantomTissue(x) => f.debug_tuple("PhantomTissue").field(x).finish(),
+        let remaining = len - 10;
+        for _ in 0..remaining {
+            entries.next();
         }
+        map.entry(&Ellipsis(remaining), &"");
+        for (k, v) in entries {
+            map.entry(k, v);
+        }
+        map.finish()?;
     }
+    f.write_str(suffix)
 }
