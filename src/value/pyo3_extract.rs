@@ -15,7 +15,7 @@ use num_complex::Complex64;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyDict, PyList},
+    types::{PyBytes, PyDict, PyList},
 };
 
 use super::{
@@ -198,6 +198,10 @@ impl FromPyObject<'_, '_> for TypedList {
             let data: Vec<String> = list.extract()?;
             return Ok(TypedList::Str(data));
         }
+        if first.is_instance_of::<PyBytes>() {
+            let data: Vec<Vec<u8>> = list.extract()?;
+            return Ok(TypedList::Bytes(data));
+        }
 
         // Structured types: check class name of first element
         if let Ok(type_name) = first.get_type().name().map(|n| n.to_string()) {
@@ -272,6 +276,10 @@ impl FromPyObject<'_, '_> for TypedDict {
             let data: HashMap<String, String> = dict.extract()?;
             return Ok(TypedDict::Str(data));
         }
+        if first_val.is_instance_of::<PyBytes>() {
+            let data: HashMap<String, Vec<u8>> = dict.extract()?;
+            return Ok(TypedDict::Bytes(data));
+        }
 
         // Structured types: check class name of first value
         if let Ok(type_name) = first_val.get_type().name().map(|n| n.to_string()) {
@@ -335,6 +343,10 @@ impl FromPyObject<'_, '_> for Value {
         }
         if let Ok(s) = obj.extract::<String>() {
             return Ok(Value::Str(s));
+        }
+        if obj.is_instance_of::<PyBytes>() {
+            let b: Vec<u8> = obj.extract()?;
+            return Ok(Value::Bytes(b));
         }
         if let Ok(c) = obj.extract::<Complex64>() {
             return Ok(Value::Complex(c));

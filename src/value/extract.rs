@@ -333,6 +333,7 @@ impl_conversion!(bool, Bool);
 impl_conversion!(i64, Int);
 impl_conversion!(f64, Float);
 impl_conversion!(String, Str);
+impl_conversion!(Vec<u8>, Bytes);
 impl_conversion!(Complex64, Complex);
 impl_conversion!(atomic::Vec3, Vec3);
 impl_conversion!(atomic::Vec4, Vec4);
