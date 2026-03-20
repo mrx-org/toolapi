@@ -11,6 +11,7 @@ impl TypedList {
             TypedList::Vec3(items) => items.is_empty(),
             TypedList::Vec4(items) => items.is_empty(),
             TypedList::Str(items) => items.is_empty(),
+            TypedList::Bytes(items) => items.is_empty(),
             TypedList::InstantSeqEvent(items) => items.is_empty(),
             TypedList::Volume(items) => items.is_empty(),
             TypedList::SegmentedPhantom(items) => items.is_empty(),

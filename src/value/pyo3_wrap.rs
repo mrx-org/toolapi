@@ -48,6 +48,7 @@ fn typed_list_to_py_list<'py>(py: Python<'py>, tl: TypedList) -> PyResult<Bound<
         TypedList::Int(v) => PyList::new(py, v),
         TypedList::Float(v) => PyList::new(py, v),
         TypedList::Str(v) => PyList::new(py, v),
+        TypedList::Bytes(v) => PyList::new(py, v),
         TypedList::Complex(v) => PyList::new(py, v),
         TypedList::Vec3(v) => {
             let l = PyList::empty(py);
@@ -280,6 +281,11 @@ impl<'py> IntoPyObject<'py> for TypedDict {
                     dict.set_item(k, v)?;
                 }
             }
+            TypedDict::Bytes(m) => {
+                for (k, v) in m {
+                    dict.set_item(k, v)?;
+                }
+            }
             TypedDict::Complex(m) => {
                 for (k, v) in m {
                     dict.set_item(k, v)?;
@@ -338,6 +344,7 @@ impl<'py> IntoPyObject<'py> for Value {
             Value::Int(i) => i.into_bound_py_any(py),
             Value::Float(f) => f.into_bound_py_any(py),
             Value::Str(s) => s.into_bound_py_any(py),
+            Value::Bytes(b) => b.into_bound_py_any(py),
             Value::Complex(c) => c.into_bound_py_any(py),
             Value::Vec3(v) => v.into_bound_py_any(py),
             Value::Vec4(v) => v.into_bound_py_any(py),
