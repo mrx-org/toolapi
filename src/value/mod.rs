@@ -11,13 +11,14 @@ use serde::{Deserialize, Serialize};
 
 mod extract;
 mod utils;
+mod debug;
 
 #[cfg(feature = "pyo3")]
 mod pyo3_extract;
 #[cfg(feature = "pyo3")]
 mod pyo3_wrap;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Value {
     // Atomic types - think of py and wasm compatibility (e.g. single int type)
     None(()),
@@ -102,9 +103,9 @@ pub mod dynamic {
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub struct Dict(pub HashMap<String, Value>);
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub struct List(pub Vec<Value>);
 }
 
@@ -120,7 +121,7 @@ pub mod typed {
     // efficiently packing values of a single type and do not support
     // nested indexing (see extract.rs). All other Value types are supported.
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub enum TypedList {
         None(Vec<()>),
         Bool(Vec<bool>),
@@ -157,7 +158,7 @@ pub mod typed {
         }
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub enum TypedDict {
         None(HashMap<String, ()>),
         Bool(HashMap<String, bool>),
