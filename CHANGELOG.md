@@ -2,6 +2,10 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.5.2**
+- Bump version number to catch up with `toolapi-py`
+- Add extraction for `Bytes` type
+- Enable extraction to return `TypedList` and `TypedDict`
 - **toolapi 0.4.6**
 - New `Value::Bytes` type for raw data transmission
 - Improve type mismatch error message and Debug repr of Value
