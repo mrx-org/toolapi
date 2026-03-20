@@ -26,7 +26,7 @@ pub async fn socket_handler(ws: WebSocketUpgrade, State(state): State<ToolState>
         .on_upgrade(async move |socket| {
             if let Err(err) = tool_handler(socket, state.tool).await {
                 // TODO: we should send the error to the tool as well!
-                eprintln!("{err:?}");
+                println!("ERR {err:?}");
             }
         })
 }
@@ -42,6 +42,7 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
         .read_input()
         .await?
         .ok_or(ConnectionError::ConnectionClosed)?;
+    println!("IN  {input:?}");
     // Channel for sending messages to the client and abort signal back
     let (mut msg_tx, mut msg_rx) = crate::connection::channel::connect();
     // Run the tool, give it the input and the channel to send messages
@@ -73,6 +74,10 @@ async fn tool_handler(socket: WebSocket, tool: ToolFn) -> Result<(), ConnectionE
 
     // Wait for tool completion and collect result - panics if tool panicked
     let result = result.await?;
+    match &result {
+        Ok(value) => println!("OUT {value:?}"),
+        Err(err) => println!("ERR {err}"),
+    }
     // Return the output to the client
     ws_server.send_output(result).await
 }
