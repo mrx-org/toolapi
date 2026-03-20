@@ -1,7 +1,7 @@
 //! This module implements the .get() function, which enables to extract static
 //! types from dynamically typed Values.
 
-use std::any::{type_name, type_name_of_val};
+use std::any::type_name;
 use std::collections::HashMap;
 
 use num_complex::Complex64;
@@ -12,6 +12,64 @@ use crate::{
 };
 
 use super::Value;
+
+fn value_variant_name(v: &Value) -> &'static str {
+    match v {
+        Value::None(_) => "Value::None",
+        Value::Bool(_) => "Value::Bool",
+        Value::Int(_) => "Value::Int",
+        Value::Float(_) => "Value::Float",
+        Value::Str(_) => "Value::Str",
+        Value::Bytes(_) => "Value::Bytes",
+        Value::Complex(_) => "Value::Complex",
+        Value::Vec3(_) => "Value::Vec3",
+        Value::Vec4(_) => "Value::Vec4",
+        Value::InstantSeqEvent(_) => "Value::InstantSeqEvent",
+        Value::Volume(_) => "Value::Volume",
+        Value::SegmentedPhantom(_) => "Value::SegmentedPhantom",
+        Value::PhantomTissue(_) => "Value::PhantomTissue",
+        Value::Dict(_) => "Value::Dict",
+        Value::List(_) => "Value::List",
+        Value::TypedDict(d) => typed_dict_variant_name(d),
+        Value::TypedList(l) => typed_list_variant_name(l),
+    }
+}
+
+fn typed_list_variant_name(v: &TypedList) -> &'static str {
+    match v {
+        TypedList::None(_) => "TypedList::None",
+        TypedList::Bool(_) => "TypedList::Bool",
+        TypedList::Int(_) => "TypedList::Int",
+        TypedList::Float(_) => "TypedList::Float",
+        TypedList::Str(_) => "TypedList::Str",
+        TypedList::Bytes(_) => "TypedList::Bytes",
+        TypedList::Complex(_) => "TypedList::Complex",
+        TypedList::Vec3(_) => "TypedList::Vec3",
+        TypedList::Vec4(_) => "TypedList::Vec4",
+        TypedList::InstantSeqEvent(_) => "TypedList::InstantSeqEvent",
+        TypedList::Volume(_) => "TypedList::Volume",
+        TypedList::SegmentedPhantom(_) => "TypedList::SegmentedPhantom",
+        TypedList::PhantomTissue(_) => "TypedList::PhantomTissue",
+    }
+}
+
+fn typed_dict_variant_name(v: &TypedDict) -> &'static str {
+    match v {
+        TypedDict::None(_) => "TypedDict::None",
+        TypedDict::Bool(_) => "TypedDict::Bool",
+        TypedDict::Int(_) => "TypedDict::Int",
+        TypedDict::Float(_) => "TypedDict::Float",
+        TypedDict::Str(_) => "TypedDict::Str",
+        TypedDict::Bytes(_) => "TypedDict::Bytes",
+        TypedDict::Complex(_) => "TypedDict::Complex",
+        TypedDict::Vec3(_) => "TypedDict::Vec3",
+        TypedDict::Vec4(_) => "TypedDict::Vec4",
+        TypedDict::InstantSeqEvent(_) => "TypedDict::InstantSeqEvent",
+        TypedDict::Volume(_) => "TypedDict::Volume",
+        TypedDict::SegmentedPhantom(_) => "TypedDict::SegmentedPhantom",
+        TypedDict::PhantomTissue(_) => "TypedDict::PhantomTissue",
+    }
+}
 
 impl Value {
     pub fn get(&self, ptr: impl Into<Pointer>) -> Result<Value, ExtractionError> {
@@ -200,7 +258,7 @@ macro_rules! impl_conversion {
                 match value {
                     Value::$variant(value) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value).to_string(),
+                        from: value_variant_name(&value).to_string(),
                         into: type_name::<$typ>().to_string(),
                     }),
                 }
@@ -217,7 +275,7 @@ macro_rules! impl_conversion {
                 match value {
                     TypedList::$variant(value) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value).to_string(),
+                        from: typed_list_variant_name(&value).to_string(),
                         into: type_name::<Vec<$typ>>().to_string(),
                     }),
                 }
@@ -230,7 +288,7 @@ macro_rules! impl_conversion {
                 match value {
                     Value::TypedList(TypedList::$variant(value)) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value).to_string(),
+                        from: value_variant_name(&value).to_string(),
                         into: type_name::<Vec<$typ>>().to_string(),
                     }),
                 }
@@ -247,7 +305,7 @@ macro_rules! impl_conversion {
                 match value {
                     TypedDict::$variant(value) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value).to_string(),
+                        from: typed_dict_variant_name(&value).to_string(),
                         into: type_name::<HashMap<String, $typ>>().to_string(),
                     }),
                 }
@@ -260,7 +318,7 @@ macro_rules! impl_conversion {
                 match value {
                     Value::TypedDict(TypedDict::$variant(value)) => Ok(value),
                     _ => Err(ExtractionError::TypeMismatch {
-                        from: type_name_of_val(&value).to_string(),
+                        from: value_variant_name(&value).to_string(),
                         into: type_name::<HashMap<String, $typ>>().to_string(),
                     }),
                 }
