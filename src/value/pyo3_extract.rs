@@ -23,7 +23,7 @@ use super::{
     atomic::{Vec3, Vec4},
     dynamic::{Dict, List},
     structured::{InstantSeqEvent, PhantomTissue, SegmentedPhantom, Volume},
-    typed::TypedList,
+    typed::{TypedDict, TypedList},
 };
 
 // =============================================================================
@@ -237,6 +237,80 @@ impl FromPyObject<'_, '_> for TypedList {
 }
 
 // =============================================================================
+// TypedDict (first-value heuristic)
+// =============================================================================
+
+impl FromPyObject<'_, '_> for TypedDict {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let dict = obj.cast::<PyDict>()?;
+        if dict.is_empty() {
+            return Ok(TypedDict::Float(HashMap::new()));
+        }
+
+        let (_first_key, first_val) = dict.iter().next().unwrap();
+
+        // Try complex before float, since complex can't extract as f64
+        if first_val.extract::<Complex64>().is_ok() {
+            let data: HashMap<String, Complex64> = dict.extract()?;
+            return Ok(TypedDict::Complex(data));
+        }
+        if first_val.extract::<f64>().is_ok() {
+            let data: HashMap<String, f64> = dict.extract()?;
+            return Ok(TypedDict::Float(data));
+        }
+        if first_val.extract::<i64>().is_ok() {
+            let data: HashMap<String, i64> = dict.extract()?;
+            return Ok(TypedDict::Int(data));
+        }
+        if first_val.extract::<bool>().is_ok() {
+            let data: HashMap<String, bool> = dict.extract()?;
+            return Ok(TypedDict::Bool(data));
+        }
+        if first_val.extract::<String>().is_ok() {
+            let data: HashMap<String, String> = dict.extract()?;
+            return Ok(TypedDict::Str(data));
+        }
+
+        // Structured types: check class name of first value
+        if let Ok(type_name) = first_val.get_type().name().map(|n| n.to_string()) {
+            match type_name.as_str() {
+                "Vec3" => {
+                    let data: HashMap<String, Vec3> = dict.extract()?;
+                    return Ok(TypedDict::Vec3(data));
+                }
+                "Vec4" => {
+                    let data: HashMap<String, Vec4> = dict.extract()?;
+                    return Ok(TypedDict::Vec4(data));
+                }
+                "InstantSeqEvent" => {
+                    let data: HashMap<String, InstantSeqEvent> = dict.extract()?;
+                    return Ok(TypedDict::InstantSeqEvent(data));
+                }
+                "Volume" => {
+                    let data: HashMap<String, Volume> = dict.extract()?;
+                    return Ok(TypedDict::Volume(data));
+                }
+                "PhantomTissue" => {
+                    let data: HashMap<String, PhantomTissue> = dict.extract()?;
+                    return Ok(TypedDict::PhantomTissue(data));
+                }
+                "SegmentedPhantom" => {
+                    let data: HashMap<String, SegmentedPhantom> = dict.extract()?;
+                    return Ok(TypedDict::SegmentedPhantom(data));
+                }
+                _ => {}
+            }
+        }
+
+        Err(PyTypeError::new_err(
+            "cannot determine TypedDict value type from dict contents",
+        ))
+    }
+}
+
+// =============================================================================
 // Value (top-level dispatcher)
 // =============================================================================
 
@@ -266,12 +340,20 @@ impl FromPyObject<'_, '_> for Value {
             return Ok(Value::Complex(c));
         }
 
-        // Built-in collections
-        if obj.is_instance_of::<PyDict>() {
-            return Ok(Value::Dict(obj.extract()?));
-        }
+        // Built-in collections: try typed variants first, fall back to dynamic
         if obj.is_instance_of::<PyList>() {
-            return Ok(Value::List(obj.extract()?));
+            return if let Ok(typed) = obj.extract::<TypedList>() {
+                Ok(Value::TypedList(typed))
+            } else {
+                Ok(Value::List(obj.extract()?))
+            };
+        }
+        if obj.is_instance_of::<PyDict>() {
+            return if let Ok(typed) = obj.extract::<TypedDict>() {
+                Ok(Value::TypedDict(typed))
+            } else {
+                Ok(Value::Dict(obj.extract()?))
+            };
         }
 
         // Structured types: dispatch on class name
