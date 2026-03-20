@@ -2,6 +2,10 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.4.6**
+- New `Value::Bytes` type for raw data transmission
+- Improve type mismatch error message and Debug repr of Value
+- Log tool inputs / outputs to stdout
 - **toolapi 0.4.5**
 - `SegmentedPhantom::tissues` is now a HashMap, storing tissue names
 - **toolapi 0.4.4**
