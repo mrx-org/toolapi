@@ -2,6 +2,8 @@
 
 Newest changes are first, releases to [crates.io](https://crates.io/crates/toolapi) are **bold**.
 
+- **toolapi 0.5.3**
+- Encode nested Python list rows (e.g. affine matrices) as dynamic `List` so pointer paths like `affine/0/0` work on servers
 - **toolapi 0.5.2**
 - Bump version number to catch up with `toolapi-py`
 - Add extraction for `Bytes` type

@@ -322,71 +322,126 @@ impl FromPyObject<'_, '_> for TypedDict {
 // Value (top-level dispatcher)
 // =============================================================================
 
+fn py_list_is_structured_type(obj: &Bound<'_, PyAny>) -> bool {
+    obj.get_type()
+        .name()
+        .map(|name| {
+            matches!(
+                name.to_string().as_str(),
+                "InstantSeqEvent" | "Vec3" | "Vec4" | "Volume" | "PhantomTissue" | "SegmentedPhantom"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn py_list_is_primitive_row(obj: Borrowed<'_, '_, PyAny>) -> bool {
+    let Ok(list) = obj.cast::<PyList>() else {
+        return false;
+    };
+    if list.is_empty() {
+        return false;
+    }
+    let Ok(first) = list.get_item(0) else {
+        return false;
+    };
+    if py_list_is_structured_type(&first) {
+        return false;
+    }
+    first.extract::<f64>().is_ok()
+        || first.extract::<i64>().is_ok()
+        || first.extract::<bool>().is_ok()
+        || first.extract::<Complex64>().is_ok()
+        || first.is_instance_of::<PyDict>()
+}
+
+/// Nested primitive rows (e.g. affine matrices) must stay dynamic so tools can
+/// index them with pointer paths like `affine/0/0`.
+fn py_list_should_encode_dynamic(list: Borrowed<'_, '_, PyList>) -> bool {
+    list.iter()
+        .any(|item| item.is_instance_of::<PyList>() && py_list_is_primitive_row((&item).into()))
+}
+
+/// Convert a Python object into a toolapi [`Value`].
+///
+/// Nested Python lists/dicts are encoded as dynamic [`List`] / [`Dict`] so
+/// server-side pointer extraction (e.g. `affine/0/0`) keeps working. Leaf
+/// lists still use compact [`TypedList`] / [`TypedDict`] encoding.
+fn value_from_py(obj: &Bound<'_, PyAny>, force_dynamic: bool) -> PyResult<Value> {
+    if obj.is_none() {
+        return Ok(Value::None(()));
+    }
+
+    // Primitives: try-extract chain (order matters: bool before int)
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(Value::Bool(b));
+    }
+    if let Ok(i) = obj.extract::<i64>() {
+        return Ok(Value::Int(i));
+    }
+    if let Ok(f) = obj.extract::<f64>() {
+        return Ok(Value::Float(f));
+    }
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(Value::Str(s));
+    }
+    if obj.is_instance_of::<PyBytes>() {
+        let b: Vec<u8> = obj.extract()?;
+        return Ok(Value::Bytes(b));
+    }
+    if let Ok(c) = obj.extract::<Complex64>() {
+        return Ok(Value::Complex(c));
+    }
+
+    if obj.is_instance_of::<PyList>() {
+        let list = obj.cast::<PyList>()?;
+        if force_dynamic || py_list_should_encode_dynamic(list.into()) {
+            let mut items = Vec::with_capacity(list.len());
+            for item in list.iter() {
+                items.push(value_from_py(&item, true)?);
+            }
+            return Ok(Value::List(List(items)));
+        }
+        return if let Ok(typed) = obj.extract::<TypedList>() {
+            Ok(Value::TypedList(typed))
+        } else {
+            Ok(Value::List(obj.extract()?))
+        };
+    }
+
+    if obj.is_instance_of::<PyDict>() {
+        return if let Ok(typed) = obj.extract::<TypedDict>() {
+            Ok(Value::TypedDict(typed))
+        } else {
+            Ok(Value::Dict(obj.extract()?))
+        };
+    }
+
+    // Structured types: dispatch on class name
+    let type_name = obj.get_type().name().map(|n| n.to_string()).map_err(|_| {
+        PyTypeError::new_err(format!(
+            "unsupported Python type for Value conversion: {}",
+            obj.get_type()
+        ))
+    })?;
+
+    match type_name.as_str() {
+        "Vec3" => Ok(Value::Vec3(obj.extract()?)),
+        "Vec4" => Ok(Value::Vec4(obj.extract()?)),
+        "Volume" => Ok(Value::Volume(obj.extract()?)),
+        "PhantomTissue" => Ok(Value::PhantomTissue(obj.extract()?)),
+        "SegmentedPhantom" => Ok(Value::SegmentedPhantom(obj.extract()?)),
+        "InstantSeqEvent" => Ok(Value::InstantSeqEvent(obj.extract()?)),
+        other => Err(PyTypeError::new_err(format!(
+            "unknown toolapi value type: {other}"
+        ))),
+    }
+}
+
 impl FromPyObject<'_, '_> for Value {
     type Error = PyErr;
 
     fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
-        // None
-        if obj.is_none() {
-            return Ok(Value::None(()));
-        }
-
-        // Primitives: try-extract chain (order matters: bool before int)
-        if let Ok(b) = obj.extract::<bool>() {
-            return Ok(Value::Bool(b));
-        }
-        if let Ok(i) = obj.extract::<i64>() {
-            return Ok(Value::Int(i));
-        }
-        if let Ok(f) = obj.extract::<f64>() {
-            return Ok(Value::Float(f));
-        }
-        if let Ok(s) = obj.extract::<String>() {
-            return Ok(Value::Str(s));
-        }
-        if obj.is_instance_of::<PyBytes>() {
-            let b: Vec<u8> = obj.extract()?;
-            return Ok(Value::Bytes(b));
-        }
-        if let Ok(c) = obj.extract::<Complex64>() {
-            return Ok(Value::Complex(c));
-        }
-
-        // Built-in collections: try typed variants first, fall back to dynamic
-        if obj.is_instance_of::<PyList>() {
-            return if let Ok(typed) = obj.extract::<TypedList>() {
-                Ok(Value::TypedList(typed))
-            } else {
-                Ok(Value::List(obj.extract()?))
-            };
-        }
-        if obj.is_instance_of::<PyDict>() {
-            return if let Ok(typed) = obj.extract::<TypedDict>() {
-                Ok(Value::TypedDict(typed))
-            } else {
-                Ok(Value::Dict(obj.extract()?))
-            };
-        }
-
-        // Structured types: dispatch on class name
-        let type_name = obj.get_type().name().map(|n| n.to_string()).map_err(|_| {
-            PyTypeError::new_err(format!(
-                "unsupported Python type for Value conversion: {}",
-                obj.get_type()
-            ))
-        })?;
-
-        match type_name.as_str() {
-            "Vec3" => Ok(Value::Vec3(obj.extract()?)),
-            "Vec4" => Ok(Value::Vec4(obj.extract()?)),
-            "Volume" => Ok(Value::Volume(obj.extract()?)),
-            "PhantomTissue" => Ok(Value::PhantomTissue(obj.extract()?)),
-            "SegmentedPhantom" => Ok(Value::SegmentedPhantom(obj.extract()?)),
-            "InstantSeqEvent" => Ok(Value::InstantSeqEvent(obj.extract()?)),
-            other => Err(PyTypeError::new_err(format!(
-                "unknown toolapi value type: {other}"
-            ))),
-        }
+        value_from_py(&obj, false)
     }
 }
 
